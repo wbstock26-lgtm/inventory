@@ -772,7 +772,7 @@ function renderProducts(products) {
         ${p.barcode || '—'}
       </td>
       <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif">
-        ${(window._skuMap||{})[p.id] ? `<span class="sku-label">${(window._skuMap||{})[p.id]}</span>` : ''}${p.name}
+        ${(window._skuMap||{})[p.id] ? `<span class="sku-label">${(window._skuMap||{})[p.id]}</span>` : ''}<span class="editable-cell name-cell" onclick="startEdit(this,${p.id},'name')">${p.name}</span>
       </td>
       <td style="text-align:right">
         <span class="editable-cell${lowCls}" onclick="startEdit(this,${p.id},'stock',${p.stock})">${p.stock}</span>
@@ -946,7 +946,8 @@ function startEdit(span, productId, field, currentVal) {
 
   const isStock  = field === 'stock';
   const isExpr   = field === 'cost' || field === 'price';
-  const rawVal   = String(currentVal).replace(/^\$/, '');
+  const isName   = field === 'name';
+  const rawVal   = isName ? span.textContent.trim() : String(currentVal).replace(/^\$/, '');
 
   const input = document.createElement('input');
   input.className = 'edit-input';
@@ -954,7 +955,7 @@ function startEdit(span, productId, field, currentVal) {
   input.value = rawVal;
   if (isStock) { input.step = '1'; }
   if (isExpr)  { input.placeholder = '예: 15.99 / 6'; }
-  input.style.width = Math.max(60, span.offsetWidth + 20) + 'px';
+  input.style.width = Math.max(isName ? 180 : 60, span.offsetWidth + 20) + 'px';
 
   const originalHtml = span.innerHTML;
   span.innerHTML = '';
