@@ -765,14 +765,15 @@ function renderProducts(products) {
       ? '<span style="display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--yellow-bg);color:var(--yellow)">부족</span>'
       : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green)">정상</span>';
     return `
-    <tr data-id="${p.id}" data-stock="${p.stock}" data-vendor="${p.vendor||''}">
+    <tr data-id="${p.id}" data-stock="${p.stock}" data-vendor="${p.vendor||''}" data-cost="${p.cost||0}" data-min-stock="${p.min_stock||0}">
       <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})">${dept}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2);cursor:context-menu"
           title="우클릭: 입고/판매 현황" oncontextmenu="showBarcodePopup(event,${p.id})">
         ${p.barcode || '—'}
       </td>
-      <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif">
-        ${(window._skuMap||{})[p.id] ? `<span class="sku-label">${(window._skuMap||{})[p.id]}</span>` : ''}<span class="editable-cell name-cell" onclick="startEdit(this,${p.id},'name')">${p.name}</span>
+      <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif;cursor:text"
+          onclick="if(event.target===this||event.target.classList.contains('sku-label')){const s=this.querySelector('.name-cell');if(s)startEdit(s,${p.id},'name');}">
+        ${(window._skuMap||{})[p.id] ? `<span class="sku-label">${(window._skuMap||{})[p.id]}</span>` : ''}<span class="editable-cell name-cell" style="display:block;width:100%" onclick="event.stopPropagation();startEdit(this,${p.id},'name')">${p.name}</span>
       </td>
       <td style="text-align:right">
         <span class="editable-cell${lowCls}" onclick="startEdit(this,${p.id},'stock',${p.stock})">${p.stock}</span>
@@ -1004,6 +1005,21 @@ async function saveEdit(input, productId, field, originalHtml) {
         tr.dataset.stock = newQty;
       }
       span.textContent = newQty;
+      // Total + Status 즉시 반영
+      const cost     = parseFloat(tr.dataset.cost) || 0;
+      const minStock = parseInt(tr.dataset.minStock, 10) || 0;
+      const isOut    = newQty <= 0;
+      const isLow    = !isOut && newQty <= minStock;
+      tr.cells[5].textContent = '$' + (newQty * cost).toFixed(2);
+      const badgeLabel = newQty < 0 ? `마이너스(${newQty})` : '품절';
+      tr.cells[8].innerHTML = isOut
+        ? `<span style="display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--red-bg);color:var(--red)">${badgeLabel}</span>`
+        : isLow
+        ? '<span style="display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--yellow-bg);color:var(--yellow)">부족</span>'
+        : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green)">정상</span>';
+      span.className = `editable-cell${isLow || isOut ? ' low-stock' : ''}`;
+      const prod = (_lastProducts || []).find(p => p.id === productId);
+      if (prod) prod.stock = newQty;
     } else {
       const body = {};
       if (field === 'cost' || field === 'price') {
@@ -1026,8 +1042,19 @@ async function saveEdit(input, productId, field, originalHtml) {
       const updated = await r.json();
 
       if (field === 'barcode') span.textContent = updated.barcode || '—';
-      else if (field === 'name') span.textContent = updated.name;
-      else if (field === 'cost') span.textContent = '$' + Number(updated.cost).toFixed(2);
+      else if (field === 'name') {
+        span.textContent = updated.name;
+        const prod = (_lastProducts || []).find(p => p.id === productId);
+        if (prod) prod.name = updated.name;
+      }
+      else if (field === 'cost') {
+        span.textContent = '$' + Number(updated.cost).toFixed(2);
+        const prod = (_lastProducts || []).find(p => p.id === productId);
+        if (prod) { prod.cost = updated.cost; tr.dataset.cost = updated.cost; }
+        // cost 변경 시 Total 셀도 업데이트
+        const curStock = parseInt(tr.dataset.stock, 10) || 0;
+        tr.cells[5].textContent = '$' + (curStock * updated.cost).toFixed(2);
+      }
       else if (field === 'price') span.textContent = updated.price > 0 ? '$' + Number(updated.price).toFixed(2) : '미설정';
     }
 
