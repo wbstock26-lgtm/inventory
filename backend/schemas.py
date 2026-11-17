@@ -55,6 +55,12 @@ class AdjustRequest(BaseModel):
     quantity:   int   # +증가 / -감소
     note:       Optional[str] = None
 
+class SplitRequest(BaseModel):
+    from_product_id: int
+    to_product_id:   int
+    qty:             int   # 분할할 원본 수량 (예: 24캔짜리 2개)
+    note:            Optional[str] = None
+
 class MovementOut(BaseModel):
     id:           int
     product_id:   int

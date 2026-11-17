@@ -40,6 +40,64 @@ def receive_stock(body: schemas.ReceiveRequest, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/split", status_code=201)
+def split_stock(body: schemas.SplitRequest, db: Session = Depends(get_db)):
+    """재고 분할: 원본 제품 차감 → 분할 제품 증가
+    분할 규칙: 24캔→8캔×3, 12캔→6캔×2 (이름에서 자동 감지)
+    qty: 원본 단위 수 (예: 24캔짜리 2개 분할 → qty=2, 8캔 6개 증가)
+    """
+    src = db.query(models.Product).filter(models.Product.id == body.from_product_id).first()
+    dst = db.query(models.Product).filter(models.Product.id == body.to_product_id).first()
+    if not src:
+        raise HTTPException(404, "원본 제품을 찾을 수 없습니다")
+    if not dst:
+        raise HTTPException(404, "분할 제품을 찾을 수 없습니다")
+    if body.qty <= 0:
+        raise HTTPException(400, "수량은 1 이상이어야 합니다")
+
+    # 분할 비율 감지: 이름에서 24x→8×3, 12x→6×2
+    import re
+    name_lower = src.name.lower()
+    m = re.search(r'(\d+)[x×xX]', name_lower)
+    pack_size = int(m.group(1)) if m else 0
+    if pack_size == 24:
+        ratio = 3    # 24캔 → 8캔×3
+    elif pack_size == 12:
+        ratio = 2    # 12캔 → 6캔×2
+    else:
+        ratio = 1    # 감지 불가 → 1:1
+
+    added = body.qty * ratio
+    note_src = body.note or f"Split {body.qty}×{pack_size}캔 → {added}×분할"
+    note_dst = body.note or f"Split 입고 (원본: {src.name} ×{body.qty})"
+
+    # 원본 차감
+    src_before = get_current_stock(db, body.from_product_id)
+    db.add(models.StockMovement(
+        product_id=body.from_product_id, type="adj",
+        quantity=-body.qty, stock_before=src_before, stock_after=src_before - body.qty,
+        unit_cost=src.cost, note=note_src,
+    ))
+
+    # 분할 증가
+    dst_before = get_current_stock(db, body.to_product_id)
+    db.add(models.StockMovement(
+        product_id=body.to_product_id, type="adj",
+        quantity=added, stock_before=dst_before, stock_after=dst_before + added,
+        unit_cost=dst.cost, note=note_dst,
+    ))
+    db.commit()
+    return {
+        "from_product":  src.name,
+        "to_product":    dst.name,
+        "qty_removed":   body.qty,
+        "qty_added":     added,
+        "ratio":         ratio,
+        "from_stock_after": src_before - body.qty,
+        "to_stock_after":   dst_before + added,
+    }
+
+
 @router.post("/adjust", status_code=201)
 def adjust_stock(body: schemas.AdjustRequest, db: Session = Depends(get_db)):
     """재고 수동 조정 (+증가 / -감소)"""
