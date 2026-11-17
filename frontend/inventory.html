@@ -310,6 +310,38 @@ body {
 @keyframes flash-err { 0%,100%{background:transparent} 50%{background:rgba(220,38,38,.18)} }
 .flash-ok  { animation: flash-ok  .6s ease; }
 .flash-err { animation: flash-err .6s ease; }
+
+/* ── Barcode 우클릭 팝업 ── */
+#barcodePopup {
+  position: fixed; z-index: 200;
+  min-width: 440px; max-width: 560px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.10);
+  overflow: hidden; font-size: 13px;
+}
+.pp-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 12px 16px; gap: 12px;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+.pp-title { font-size: 13px; font-weight: 700; line-height: 1.3; }
+.pp-sub   { font-size: 11px; color: var(--fg2); font-family: 'IBM Plex Mono', monospace; margin-top: 3px; letter-spacing: .03em; }
+.pp-close { background: none; border: none; cursor: pointer; color: var(--fg3); font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.pp-close:hover { background: var(--border); color: var(--fg); }
+.pp-body  { display: grid; grid-template-columns: 1fr 1fr; }
+.pp-col   { padding: 12px 14px; }
+.pp-col + .pp-col { border-left: 1px solid var(--border); }
+.pp-col-title { font-size: 11px; font-weight: 700; color: var(--fg2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.pp-tbl   { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pp-tbl th { padding: 4px 6px; font-size: 10px; font-weight: 600; color: var(--fg3); letter-spacing: .04em; border-bottom: 1px solid var(--border); text-align: left; }
+.pp-tbl th:not(:first-child) { text-align: right; }
+.pp-tbl td { padding: 5px 6px; border-bottom: 1px solid var(--border); }
+.pp-tbl td:not(:first-child) { text-align: right; }
+.pp-tbl tbody tr:last-child td { border-bottom: none; }
+.pp-tbl tfoot tr td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; padding-top: 6px; }
+.pp-empty { padding: 20px 14px; text-align: center; color: var(--fg3); font-size: 12px; }
+#popupOverlay { position: fixed; inset: 0; z-index: 199; }
 </style>
 
 <!-- Nav -->
@@ -471,6 +503,28 @@ body {
 
 </div>
 
+<!-- Barcode 우클릭 팝업 -->
+<div id="barcodePopup" style="display:none">
+  <div class="pp-head">
+    <div>
+      <div class="pp-title" id="ppTitle">—</div>
+      <div class="pp-sub"   id="ppBarcode">—</div>
+    </div>
+    <button class="pp-close" onclick="closeBarcodePopup()">✕</button>
+  </div>
+  <div class="pp-body">
+    <div class="pp-col">
+      <div class="pp-col-title">📥 월별 입고</div>
+      <div id="ppIn"><div class="pp-empty">로딩 중…</div></div>
+    </div>
+    <div class="pp-col">
+      <div class="pp-col-title">🛒 월별 판매</div>
+      <div id="ppOut"><div class="pp-empty">로딩 중…</div></div>
+    </div>
+  </div>
+</div>
+<div id="popupOverlay" style="display:none" onclick="closeBarcodePopup()"></div>
+
 <script>
 const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
 
@@ -626,7 +680,8 @@ function renderProducts(products) {
     return `
     <tr data-id="${p.id}" data-stock="${p.stock}" data-vendor="${p.vendor||''}">
       <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})">${dept}</span></td>
-      <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2)">
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2);cursor:context-menu"
+          title="우클릭: 입고/판매 현황" oncontextmenu="showBarcodePopup(event,${p.id})">
         ${p.barcode || '—'}
       </td>
       <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif">
@@ -668,6 +723,93 @@ function renderMovements(movements) {
 }
 
 loadAll();
+
+// ── Barcode 우클릭 팝업 ────────────────────────
+async function showBarcodePopup(e, productId) {
+  e.preventDefault();
+  const p = _lastProducts.find(x => x.id === productId);
+  if (!p) return;
+
+  const popup   = document.getElementById('barcodePopup');
+  const overlay = document.getElementById('popupOverlay');
+  document.getElementById('ppTitle').textContent   = p.name;
+  document.getElementById('ppBarcode').textContent = p.barcode || '—';
+  document.getElementById('ppIn').innerHTML  = '<div class="pp-empty">로딩 중…</div>';
+  document.getElementById('ppOut').innerHTML = '<div class="pp-empty">로딩 중…</div>';
+
+  popup.style.display   = '';
+  overlay.style.display = '';
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const pw = popup.offsetWidth  || 460;
+  const ph = popup.offsetHeight || 320;
+  let x = e.clientX + 10, y = e.clientY + 10;
+  if (x + pw > vw - 10) x = vw - pw - 10;
+  if (y + ph > vh - 10) y = vh - ph - 10;
+  if (x < 10) x = 10;
+  if (y < 10) y = 10;
+  popup.style.left = x + 'px';
+  popup.style.top  = y + 'px';
+
+  try {
+    const [inData, outData] = await Promise.all([
+      fetch(`${API_BASE}/api/stock/movements?product_id=${productId}&type=in&limit=500`).then(r => r.json()),
+      fetch(`${API_BASE}/api/stock/movements?product_id=${productId}&type=out&limit=500`).then(r => r.json()),
+    ]);
+    renderPopupSection('ppIn',  inData,  'in');
+    renderPopupSection('ppOut', outData, 'out');
+  } catch {
+    const err = '<div class="pp-empty" style="color:var(--red)">로드 실패</div>';
+    document.getElementById('ppIn').innerHTML  = err;
+    document.getElementById('ppOut').innerHTML = err;
+  }
+}
+
+function renderPopupSection(elId, data, type) {
+  const el = document.getElementById(elId);
+  if (!data.length) { el.innerHTML = '<div class="pp-empty">이력 없음</div>'; return; }
+
+  const byMonth = {};
+  for (const m of data) {
+    const ym = (type === 'out' && m.order_no && /^\d{4}-\d{2}/.test(m.order_no))
+      ? m.order_no.slice(0, 7)
+      : (m.created_at || '').slice(0, 7);
+    if (!ym) continue;
+    if (!byMonth[ym]) byMonth[ym] = { qty: 0, amt: 0 };
+    byMonth[ym].qty += m.quantity;
+    byMonth[ym].amt += m.quantity * (m.unit_cost || 0);
+  }
+
+  const months = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+  if (!months.length) { el.innerHTML = '<div class="pp-empty">이력 없음</div>'; return; }
+
+  const totQty = months.reduce((s, m) => s + byMonth[m].qty, 0);
+  const totAmt = months.reduce((s, m) => s + byMonth[m].amt, 0);
+
+  el.innerHTML = `
+    <table class="pp-tbl">
+      <thead><tr><th>월</th><th>수량</th><th>금액</th></tr></thead>
+      <tbody>${months.map(ym => {
+        const [y, mo] = ym.split('-');
+        return `<tr>
+          <td style="font-family:'IBM Plex Mono',monospace">${y}.${mo}</td>
+          <td>${byMonth[ym].qty}</td>
+          <td style="font-family:'IBM Plex Mono',monospace">$${byMonth[ym].amt.toFixed(2)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+      <tfoot><tr>
+        <td>합계</td>
+        <td>${totQty}</td>
+        <td style="font-family:'IBM Plex Mono',monospace">$${totAmt.toFixed(2)}</td>
+      </tr></tfoot>
+    </table>`;
+}
+
+function closeBarcodePopup() {
+  document.getElementById('barcodePopup').style.display   = 'none';
+  document.getElementById('popupOverlay').style.display   = 'none';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBarcodePopup(); });
 
 // ── 인라인 편집 ───────────────────────────────
 let _editActive = null;
