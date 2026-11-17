@@ -245,6 +245,24 @@ body {
 .split-btn:hover { background: var(--accent-bg); color: var(--accent); }
 .split-btn.active-24 { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
 .split-btn.active-12 { background: #0369a1; color: #fff; border-color: #0369a1; }
+.del-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 4px; border: none;
+  background: none; color: var(--fg3); cursor: pointer; font-size: 15px; line-height: 1;
+  transition: background .1s, color .1s; vertical-align: middle;
+}
+.del-btn:hover { background: var(--red-bg); color: var(--red); }
+.del-confirm {
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.del-confirm-yes {
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  background: var(--red); color: #fff; border: none; cursor: pointer;
+}
+.del-confirm-no {
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  background: var(--surface2); color: var(--fg2); border: 1px solid var(--border); cursor: pointer;
+}
 .dept-badge {
   display: inline-block; width: 28px; text-align: center;
   padding: 2px 0; border-radius: 4px;
@@ -496,10 +514,11 @@ body {
             <th style="text-align:right">판매가</th>
             <th style="text-align:center">Split</th>
             <th style="text-align:center">상태</th>
+            <th style="width:28px"></th>
           </tr>
         </thead>
         <tbody id="productTbody">
-          <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg3)">불러오는 중…</td></tr>
+          <tr><td colspan="11" style="text-align:center;padding:24px;color:var(--fg3)">불러오는 중…</td></tr>
         </tbody>
       </table>
     </div>
@@ -546,6 +565,39 @@ const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'lo
 // ── Split 24K/12K 마킹 ───────────────────────────────────────────
 function lsGet(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
 function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+async function deleteProduct(id) {
+  const row = document.querySelector(`tr[data-id="${id}"]`);
+  if (!row) return;
+  const cell = row.querySelector('.del-cell');
+  cell.innerHTML = `<span class="del-confirm">
+    <span style="font-size:11px;color:var(--fg2)">삭제?</span>
+    <button class="del-confirm-yes" onclick="confirmDelete(${id})">삭제</button>
+    <button class="del-confirm-no" onclick="cancelDelete(${id})">취소</button>
+  </span>`;
+}
+
+async function confirmDelete(id) {
+  try {
+    await fetch(`${API_BASE}/api/products/${id}`, { method: 'DELETE' });
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (row) {
+      row.style.transition = 'opacity .3s';
+      row.style.opacity = '0';
+      setTimeout(() => row.remove(), 300);
+    }
+    _lastProducts = (_lastProducts || []).filter(p => p.id !== id);
+  } catch(e) {
+    alert('삭제 실패: ' + e.message);
+  }
+}
+
+function cancelDelete(id) {
+  const row = document.querySelector(`tr[data-id="${id}"]`);
+  if (!row) return;
+  const cell = row.querySelector('.del-cell');
+  cell.innerHTML = `<button class="del-btn" onclick="event.stopPropagation();deleteProduct(${id})" title="제품 삭제">🗑</button>`;
+}
 
 function toggleSplitMark(id, type) {
   const key = type === '24' ? 'split_24k' : 'split_12k';
@@ -681,8 +733,8 @@ function renderProducts(products) {
 
   if (!filtered.length) {
     tbody.innerHTML = q
-      ? `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg3)">"${q}" 검색 결과 없음</td></tr>`
-      : '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg3)">등록된 제품 없음<br><small>발주 파일 입고 시 자동 등록됩니다</small></td></tr>';
+      ? `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--fg3)">"${q}" 검색 결과 없음</td></tr>`
+      : '<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--fg3)">등록된 제품 없음<br><small>발주 파일 입고 시 자동 등록됩니다</small></td></tr>';
     return;
   }
 
@@ -740,6 +792,9 @@ function renderProducts(products) {
         })()}
       </td>
       <td style="text-align:center">${badge}</td>
+      <td class="del-cell" style="text-align:center;width:28px;padding:0 4px">
+        <button class="del-btn" onclick="event.stopPropagation();deleteProduct(${p.id})" title="제품 삭제">🗑</button>
+      </td>
     </tr>`;
   }).join('');
 }
