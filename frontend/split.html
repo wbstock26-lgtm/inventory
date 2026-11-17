@@ -371,6 +371,8 @@ let _hidden  = new Set(lsGet('split_hidden',  []));
 let _custom  = new Set(lsGet('split_custom',  []));
 let _ratios  = lsGet('split_ratios', {});
 let _pairs   = lsGet('split_pairs',  {});
+let _24k     = new Set(lsGet('split_24k', []));
+let _12k     = new Set(lsGet('split_12k', []));
 
 function saveHidden()  { lsSet('split_hidden',  [..._hidden]); }
 function saveCustom()  { lsSet('split_custom',  [..._custom]); }
@@ -391,7 +393,9 @@ function getCanSize(name) {
 }
 
 function rebuildPanel() {
-  _24canProducts = _products.filter(p => (getCanSize(p.name) > 0 || _custom.has(p.id)) && !_hidden.has(p.id));
+  _24k = new Set(lsGet('split_24k', []));
+  _12k = new Set(lsGet('split_12k', []));
+  _24canProducts = _products.filter(p => (_24k.has(p.id) || _12k.has(p.id) || _custom.has(p.id)) && !_hidden.has(p.id));
   _24canProducts.sort((a, b) => a.name.localeCompare(b.name));
   updateHiddenBadge();
   filterPanel(document.getElementById('panelSearch').value);
@@ -619,9 +623,8 @@ function getEffectiveRatio(id, name) {
   if (_ratios[id] != null) return _ratios[id];
   const rule = detectRule(name);
   if (rule.ratio !== 1) return rule.ratio;
-  const size = getCanSize(name);
-  if (size === 24) return 3;
-  if (size === 12) return 2;
+  if (_24k.has(id)) return 3;
+  if (_12k.has(id)) return 2;
   return 1;
 }
 
@@ -631,7 +634,7 @@ function updateRuleUI(p) {
   const isCustomRatio = _ratios[p.id] != null;
   const ruleEl = document.getElementById('srcRule');
 
-  const effPack = autoRule.pack || getCanSize(p.name);
+  const effPack = autoRule.pack || (_24k.has(p.id) ? 24 : _12k.has(p.id) ? 12 : 0);
   let badgeHtml;
   if (effPack === 24) {
     badgeHtml = `<span class="rule-badge rule-24">✂️ 24캔 → 8캔 × ${ratio}개${isCustomRatio ? '<span class="rule-custom-tag">수정됨</span>' : ''}</span>`;

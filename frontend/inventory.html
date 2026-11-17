@@ -236,6 +236,15 @@ body {
 }
 .inv-table tbody tr:last-child td { border-bottom: none; }
 .inv-table tbody tr:hover td { background: var(--surface2); }
+.split-btn {
+  display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace; cursor: pointer; user-select: none;
+  border: 1px solid var(--border); background: var(--surface2); color: var(--fg3);
+  transition: background .1s, color .1s;
+}
+.split-btn:hover { background: var(--accent-bg); color: var(--accent); }
+.split-btn.active-24 { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+.split-btn.active-12 { background: #0369a1; color: #fff; border-color: #0369a1; }
 .dept-badge {
   display: inline-block; width: 28px; text-align: center;
   padding: 2px 0; border-radius: 4px;
@@ -485,11 +494,12 @@ body {
             <th style="text-align:right">단가</th>
             <th style="text-align:right">Total</th>
             <th style="text-align:right">판매가</th>
+            <th style="text-align:center">Split</th>
             <th style="text-align:center">상태</th>
           </tr>
         </thead>
         <tbody id="productTbody">
-          <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg3)">불러오는 중…</td></tr>
+          <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg3)">불러오는 중…</td></tr>
         </tbody>
       </table>
     </div>
@@ -532,6 +542,26 @@ body {
 
 <script>
 const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+
+// ── Split 24K/12K 마킹 ───────────────────────────────────────────
+function lsGet(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
+function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+function toggleSplitMark(id, type) {
+  const key = type === '24' ? 'split_24k' : 'split_12k';
+  const otherKey = type === '24' ? 'split_12k' : 'split_24k';
+  const set = new Set(lsGet(key, []));
+  const other = new Set(lsGet(otherKey, []));
+  if (set.has(id)) {
+    set.delete(id);
+  } else {
+    set.add(id);
+    other.delete(id);
+    lsSet(otherKey, [...other]);
+  }
+  lsSet(key, [...set]);
+  renderProducts(_lastProducts);
+}
 
 async function api(path) {
   const res = await fetch(API_BASE + path);
@@ -651,8 +681,8 @@ function renderProducts(products) {
 
   if (!filtered.length) {
     tbody.innerHTML = q
-      ? `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg3)">"${q}" 검색 결과 없음</td></tr>`
-      : '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg3)">등록된 제품 없음<br><small>발주 파일 입고 시 자동 등록됩니다</small></td></tr>';
+      ? `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg3)">"${q}" 검색 결과 없음</td></tr>`
+      : '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--fg3)">등록된 제품 없음<br><small>발주 파일 입고 시 자동 등록됩니다</small></td></tr>';
     return;
   }
 
@@ -701,6 +731,13 @@ function renderProducts(products) {
       <td style="text-align:right;font-weight:600;color:var(--fg2)">${fmt(total)}</td>
       <td style="text-align:right;color:var(--fg2)">
         ${p.price > 0 ? fmt(p.price) : '<span style="color:var(--fg3)">미설정</span>'}
+      </td>
+      <td style="text-align:center;white-space:nowrap">
+        ${(() => {
+          const is24 = new Set(lsGet('split_24k', [])).has(p.id);
+          const is12 = new Set(lsGet('split_12k', [])).has(p.id);
+          return `<span class="split-btn${is24 ? ' active-24' : ''}" onclick="event.stopPropagation();toggleSplitMark(${p.id},'24')">24K</span> <span class="split-btn${is12 ? ' active-12' : ''}" onclick="event.stopPropagation();toggleSplitMark(${p.id},'12')">12K</span>`;
+        })()}
       </td>
       <td style="text-align:center">${badge}</td>
     </tr>`;
