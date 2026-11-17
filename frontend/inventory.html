@@ -518,7 +518,7 @@ body {
   </div>
   <div class="pp-body">
     <div class="pp-col">
-      <div class="pp-col-title">📥 월별 입고</div>
+      <div class="pp-col-title">📥 입고 내역</div>
       <div id="ppIn"><div class="pp-empty">로딩 중…</div></div>
     </div>
     <div class="pp-col">
@@ -757,8 +757,8 @@ async function showBarcodePopup(e, productId) {
       fetch(`${API_BASE}/api/stock/movements?product_id=${productId}&type=in&limit=500`).then(r => r.json()),
       fetch(`${API_BASE}/api/stock/movements?product_id=${productId}&type=out&limit=500`).then(r => r.json()),
     ]);
-    renderPopupSection('ppIn',  inData,  'in');
-    renderPopupSection('ppOut', outData, 'out');
+    renderInbound('ppIn',  inData,  p.cost || 0);
+    renderSales('ppOut', outData);
   } catch {
     const err = '<div class="pp-empty" style="color:var(--red)">로드 실패</div>';
     document.getElementById('ppIn').innerHTML  = err;
@@ -766,13 +766,45 @@ async function showBarcodePopup(e, productId) {
   }
 }
 
-function renderPopupSection(elId, data, type) {
+function renderInbound(elId, data, productCost) {
+  const el = document.getElementById(elId);
+  if (!data.length) { el.innerHTML = '<div class="pp-empty">이력 없음</div>'; return; }
+
+  const sorted = [...data].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  let totQty = 0, totAmt = 0;
+
+  el.innerHTML = `
+    <table class="pp-tbl">
+      <thead><tr><th>날짜</th><th>수량</th><th>금액</th></tr></thead>
+      <tbody>${sorted.map(m => {
+        const cost = m.unit_cost || productCost;
+        const amt  = m.quantity * cost;
+        totQty += m.quantity;
+        totAmt += amt;
+        const date = (m.created_at || '').slice(0, 10);
+        const costNote = (!m.unit_cost && productCost)
+          ? `<span style="font-size:9px;color:var(--fg3);margin-left:2px">원가</span>` : '';
+        return `<tr>
+          <td style="font-family:'IBM Plex Mono',monospace;font-size:11px">${date}</td>
+          <td>${m.quantity}</td>
+          <td style="font-family:'IBM Plex Mono',monospace">$${amt.toFixed(2)}${costNote}</td>
+        </tr>`;
+      }).join('')}</tbody>
+      <tfoot><tr>
+        <td>합계</td>
+        <td>${totQty}</td>
+        <td style="font-family:'IBM Plex Mono',monospace">$${totAmt.toFixed(2)}</td>
+      </tr></tfoot>
+    </table>`;
+}
+
+function renderSales(elId, data) {
   const el = document.getElementById(elId);
   if (!data.length) { el.innerHTML = '<div class="pp-empty">이력 없음</div>'; return; }
 
   const byMonth = {};
   for (const m of data) {
-    const ym = (type === 'out' && m.order_no && /^\d{4}-\d{2}/.test(m.order_no))
+    const ym = (m.order_no && /^\d{4}-\d{2}/.test(m.order_no))
       ? m.order_no.slice(0, 7)
       : (m.created_at || '').slice(0, 7);
     if (!ym) continue;
