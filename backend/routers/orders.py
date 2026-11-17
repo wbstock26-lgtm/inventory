@@ -190,6 +190,8 @@ def update_order_item(order_id: int, item_id: int, body: schemas.OrderItemUpdate
 
     item.qty_received = new_qty
     item.unit_price   = new_price
+    if body.barcode    is not None: item.barcode    = body.barcode
+    if body.product_id is not None: item.product_id = body.product_id
 
     # 입고완료 주문이면 연결된 재고이동도 수정
     if order.status == "received" and item.product_id:

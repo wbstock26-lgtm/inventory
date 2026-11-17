@@ -176,6 +176,8 @@ class MovementUpdate(BaseModel):
 class OrderItemUpdate(BaseModel):
     qty_received: Optional[float] = None
     unit_price:   Optional[float] = None
+    barcode:      Optional[str]   = None
+    product_id:   Optional[int]   = None
 
 
 class OrderOut(BaseModel):
