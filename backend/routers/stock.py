@@ -55,17 +55,21 @@ def split_stock(body: schemas.SplitRequest, db: Session = Depends(get_db)):
     if body.qty <= 0:
         raise HTTPException(400, "수량은 1 이상이어야 합니다")
 
-    # 분할 비율 감지: 이름에서 24x→8×3, 12x→6×2
-    import re
-    name_lower = src.name.lower()
-    m = re.search(r'(\d+)[x×xX]', name_lower)
-    pack_size = int(m.group(1)) if m else 0
-    if pack_size == 24:
-        ratio = 3    # 24캔 → 8캔×3
-    elif pack_size == 12:
-        ratio = 2    # 12캔 → 6캔×2
+    # 분할 비율: 명시적으로 전달된 경우 사용, 아니면 이름에서 자동 감지
+    if body.ratio is not None and body.ratio >= 1:
+        ratio = body.ratio
+        pack_size = 0  # 명시 비율이면 pack_size 불필요
     else:
-        ratio = 1    # 감지 불가 → 1:1
+        import re
+        name_lower = src.name.lower()
+        m = re.search(r'(\d+)[x×xX]', name_lower)
+        pack_size = int(m.group(1)) if m else 0
+        if pack_size == 24:
+            ratio = 3
+        elif pack_size == 12:
+            ratio = 2
+        else:
+            ratio = 1
 
     added = body.qty * ratio
     note_src = body.note or f"Split {body.qty}×{pack_size}캔 → {added}×분할"

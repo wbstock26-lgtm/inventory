@@ -59,6 +59,7 @@ class SplitRequest(BaseModel):
     from_product_id: int
     to_product_id:   int
     qty:             int   # 분할할 원본 수량 (예: 24캔짜리 2개)
+    ratio:           Optional[int] = None  # 명시적 비율; None이면 이름에서 자동 감지
     note:            Optional[str] = None
 
 class MovementOut(BaseModel):
