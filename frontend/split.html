@@ -288,7 +288,7 @@ let _24canProducts = [];
 async function loadProducts() {
   const r = await fetch(`${API}/api/products?limit=2000`);
   _products = await r.json();
-  _24canProducts = _products.filter(p => /24[x×xX]/i.test(p.name) && p.is_active !== false);
+  _24canProducts = _products.filter(p => /(^|[^0-9])24([^0-9]|$)/.test(p.name));
   _24canProducts.sort((a, b) => a.name.localeCompare(b.name));
   renderPanel(_24canProducts);
 }
