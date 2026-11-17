@@ -179,6 +179,19 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 .detail-table td { padding: 6px 10px; border-top: 1px solid var(--border); }
 .detail-table tfoot td { border-top: 2px solid var(--border); font-weight: 700; }
 .detail-table td[id^="hqty-"]:hover { background: var(--accent-bg); border-radius: 4px; }
+
+/* History tabs */
+.htabs { display:flex; gap:0; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+.htab { padding:6px 14px; font-size:12px; font-weight:600; color:var(--fg2); background:none; border:none; cursor:pointer; transition:all .1s; }
+.htab.active { color:var(--accent); background:var(--accent-bg); }
+.htab:hover:not(.active) { background:var(--surface2); color:var(--fg); }
+
+/* Month / Year navigation */
+.month-nav { display:flex; align-items:center; gap:10px; padding:10px 18px; border-bottom:1px solid var(--border); }
+.month-nav-btn { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:3px 11px; font-size:16px; cursor:pointer; color:var(--fg); line-height:1.4; }
+.month-nav-btn:hover { background:var(--border); }
+.month-nav-btn:disabled { opacity:.4; cursor:not-allowed; }
+.month-label { font-size:14px; font-weight:600; flex:1; text-align:center; }
 </style>
 
 <!-- Nav -->
@@ -316,36 +329,114 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 
   </div>
 
-  <!-- 일자별 판매 이력 & 월 차트 -->
+  <!-- 일자별 / 월별 / 연간 판매 이력 -->
   <div class="card" style="margin-top:24px">
-    <div class="card-head" style="justify-content:space-between">
-      <span>📅 일자별 판매 이력</span>
+    <div class="card-head" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div class="htabs">
+        <button class="htab active" data-htab="daily" onclick="switchHistoryTab('daily')">📅 일자별</button>
+        <button class="htab" data-htab="monthly" onclick="switchHistoryTab('monthly')">📊 월별</button>
+        <button class="htab" data-htab="yearly" onclick="switchHistoryTab('yearly')">📆 연간</button>
+      </div>
       <span style="font-size:12px;font-weight:400;color:var(--fg2)" id="historySubtitle">로딩 중…</span>
     </div>
-    <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
-      <table class="history-table">
-        <thead>
-          <tr>
-            <th>판매일</th>
-            <th style="text-align:center">품목</th>
-            <th style="text-align:center">수량</th>
-            <th style="text-align:right">매출</th>
-            <th style="width:28px"></th>
-          </tr>
-        </thead>
-        <tbody id="historyBody">
-          <tr><td colspan="5" class="empty">데이터 로딩 중…</td></tr>
-        </tbody>
-        <tfoot id="historyFoot" style="display:none">
-          <tr>
-            <td>합계</td>
-            <td style="text-align:center" id="footItems">—</td>
-            <td style="text-align:center" id="footQty">—</td>
-            <td style="text-align:right;font-family:'IBM Plex Mono',monospace" id="footRevenue">—</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
+
+    <!-- 일자별 -->
+    <div id="htab-daily">
+      <div class="month-nav">
+        <button class="month-nav-btn" id="btnPrevMonth" onclick="shiftMonth(-1)">‹</button>
+        <span class="month-label" id="monthLabel">—</span>
+        <button class="month-nav-btn" id="btnNextMonth" onclick="shiftMonth(1)">›</button>
+      </div>
+      <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>판매일</th>
+              <th style="text-align:center">품목</th>
+              <th style="text-align:center">수량</th>
+              <th style="text-align:right">매출</th>
+              <th style="width:28px"></th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="5" class="empty">데이터 로딩 중…</td></tr>
+          </tbody>
+          <tfoot id="historyFoot" style="display:none">
+            <tr>
+              <td>합계</td>
+              <td style="text-align:center" id="footItems">—</td>
+              <td style="text-align:center" id="footQty">—</td>
+              <td style="text-align:right;font-family:'IBM Plex Mono',monospace" id="footRevenue">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- 월별 -->
+    <div id="htab-monthly" style="display:none">
+      <div class="month-nav">
+        <button class="month-nav-btn" onclick="shiftYear(-1)">‹</button>
+        <span class="month-label" id="yearLabel">—</span>
+        <button class="month-nav-btn" onclick="shiftYear(1)">›</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>월</th>
+              <th style="text-align:center">영업일</th>
+              <th style="text-align:center">품목 수</th>
+              <th style="text-align:center">판매 수량</th>
+              <th style="text-align:right">매출</th>
+            </tr>
+          </thead>
+          <tbody id="monthlyBody">
+            <tr><td colspan="5" class="empty">데이터 로딩 중…</td></tr>
+          </tbody>
+          <tfoot id="monthlyFoot" style="display:none">
+            <tr>
+              <td>합계</td>
+              <td style="text-align:center" id="mfootDays">—</td>
+              <td style="text-align:center" id="mfootItems">—</td>
+              <td style="text-align:center" id="mfootQty">—</td>
+              <td style="text-align:right;font-family:'IBM Plex Mono',monospace" id="mfootRevenue">—</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- 연간 -->
+    <div id="htab-yearly" style="display:none">
+      <div style="overflow-x:auto">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>연도</th>
+              <th style="text-align:center">영업월</th>
+              <th style="text-align:center">영업일</th>
+              <th style="text-align:center">품목 수</th>
+              <th style="text-align:center">판매 수량</th>
+              <th style="text-align:right">매출</th>
+            </tr>
+          </thead>
+          <tbody id="yearlyBody">
+            <tr><td colspan="6" class="empty">데이터 로딩 중…</td></tr>
+          </tbody>
+          <tfoot id="yearlyFoot" style="display:none">
+            <tr>
+              <td>합계</td>
+              <td></td>
+              <td style="text-align:center" id="yfootDays">—</td>
+              <td style="text-align:center" id="yfootItems">—</td>
+              <td style="text-align:center" id="yfootQty">—</td>
+              <td style="text-align:right;font-family:'IBM Plex Mono',monospace" id="yfootRevenue">—</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -891,8 +982,45 @@ function showToast(msg, type) {
 
 // ── Sales History ──────────────────────────────────────
 let activeDetailDate = null;
-let _barcodeMap = {};  // product_id → barcode
+let _barcodeMap = {};
 let _deletingItem = false;
+let _histTab = 'daily';
+let _viewMonth = '';
+let _viewYear = '';
+let _allByDate = {};
+let _allDates = [];
+let _byMonth = {};
+let _byYear = {};
+
+function switchHistoryTab(tab) {
+  _histTab = tab;
+  ['daily','monthly','yearly'].forEach(t => {
+    const el = document.getElementById(`htab-${t}`);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('.htab').forEach(b => {
+    b.classList.toggle('active', b.dataset.htab === tab);
+  });
+  renderCurrentTab();
+}
+
+function renderCurrentTab() {
+  if (_histTab === 'daily') renderDailyTable();
+  else if (_histTab === 'monthly') renderMonthlyTable();
+  else renderYearlyTable();
+}
+
+function shiftMonth(delta) {
+  const [y, m] = _viewMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  _viewMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderDailyTable();
+}
+
+function shiftYear(delta) {
+  _viewYear = String(parseInt(_viewYear) + delta);
+  renderMonthlyTable();
+}
 
 async function loadSalesHistory() {
   try {
@@ -904,59 +1032,89 @@ async function loadSalesHistory() {
     _barcodeMap = {};
     products.forEach(p => { _barcodeMap[p.id] = p.barcode || ''; });
 
-    // Group by order_no (= sale_date), fallback to created_at date
-    const byDate = {};
+    _allByDate = {};
     for (const m of data) {
       const date = m.order_no || (m.created_at ? m.created_at.slice(0, 10) : '?');
-      if (!byDate[date]) byDate[date] = [];
-      byDate[date].push(m);
+      if (!_allByDate[date]) _allByDate[date] = [];
+      _allByDate[date].push(m);
     }
+    _allDates = Object.keys(_allByDate).sort((a, b) => b.localeCompare(a));
 
-    const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
-    renderHistoryTable(dates, byDate);
+    // Build monthly/yearly aggregates
+    _byMonth = {}; _byYear = {};
+    for (const [date, items] of Object.entries(_allByDate)) {
+      const ym = date.slice(0, 7);
+      const y  = date.slice(0, 4);
+      const qty = items.reduce((s, m) => s + m.quantity, 0);
+      const rev = items.reduce((s, m) => s + m.quantity * (m.unit_cost || 0), 0);
+      if (!_byMonth[ym]) _byMonth[ym] = { items:0, qty:0, revenue:0, days:0 };
+      _byMonth[ym].items   += items.length;
+      _byMonth[ym].qty     += qty;
+      _byMonth[ym].revenue += rev;
+      _byMonth[ym].days++;
+      if (!_byYear[y]) _byYear[y] = { items:0, qty:0, revenue:0, months:0, days:0 };
+      _byYear[y].items   += items.length;
+      _byYear[y].qty     += qty;
+      _byYear[y].revenue += rev;
+      _byYear[y].days++;
+    }
+    const mByY = {};
+    Object.keys(_byMonth).forEach(ym => { const y = ym.slice(0,4); mByY[y] = (mByY[y]||0)+1; });
+    Object.keys(_byYear).forEach(y => { _byYear[y].months = mByY[y]||0; });
+
+    const today = new Date();
+    const thisMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+    _viewMonth = _allDates.length > 0 ? _allDates[0].slice(0,7) : thisMonth;
+    _viewYear  = _viewMonth.slice(0,4);
 
     document.getElementById('historySubtitle').textContent =
-      dates.length > 0 ? `총 ${dates.length}일 이력` : '데이터 없음';
+      _allDates.length > 0 ? `총 ${_allDates.length}일 이력` : '데이터 없음';
+
+    renderCurrentTab();
   } catch (err) {
     document.getElementById('historyBody').innerHTML =
       `<tr><td colspan="5" class="empty" style="color:var(--red)">로딩 실패: ${err.message}</td></tr>`;
   }
 }
 
-function renderHistoryTable(dates, byDate) {
+function renderDailyTable() {
+  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const [y, m] = _viewMonth.split('-').map(Number);
+  document.getElementById('monthLabel').textContent = `${y}년 ${monthNames[m-1]}`;
+
+  const today = new Date();
+  const thisMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const allMonths = [...new Set(_allDates.map(d => d.slice(0,7)))].sort();
+  const btnPrev = document.getElementById('btnPrevMonth');
+  const btnNext = document.getElementById('btnNextMonth');
+  if (btnPrev) btnPrev.disabled = _viewMonth <= (allMonths[0] || _viewMonth);
+  if (btnNext) btnNext.disabled = _viewMonth >= thisMonth;
+
+  const monthDates = _allDates.filter(d => d.startsWith(_viewMonth));
   const tbody = document.getElementById('historyBody');
   const tfoot = document.getElementById('historyFoot');
 
-  if (!dates.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">판매 이력이 없습니다</td></tr>';
+  if (!monthDates.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">${y}년 ${monthNames[m-1]} 판매 이력이 없습니다</td></tr>`;
     tfoot.style.display = 'none';
     return;
   }
 
   let grandItems = 0, grandQty = 0, grandRev = 0;
 
-  tbody.innerHTML = dates.map(date => {
-    const items = byDate[date];
-    const totalQty = items.reduce((s, m) => s + m.quantity, 0);
-    const totalRev = items.reduce((s, m) => s + m.quantity * (m.unit_cost || 0), 0);
-    grandItems += items.length;
-    grandQty += totalQty;
-    grandRev += totalRev;
-
-    const [y, mo, d] = date.split('-');
+  tbody.innerHTML = monthDates.map(date => {
+    const items = _allByDate[date];
+    const totalQty = items.reduce((s, mv) => s + mv.quantity, 0);
+    const totalRev = items.reduce((s, mv) => s + mv.quantity * (mv.unit_cost || 0), 0);
+    grandItems += items.length; grandQty += totalQty; grandRev += totalRev;
+    const [yd, mo, d] = date.split('-');
     const dateLabel = `${mo}/${d}`;
-
     return `
     <tr id="hrow-${date}" class="history-date-row" onclick="toggleDayDetail('${date}')">
-      <td>
-        <strong>${dateLabel}</strong>
-        <span style="margin-left:5px;font-size:11px;color:var(--fg3)">${y}</span>
-      </td>
+      <td><strong>${dateLabel}</strong><span style="margin-left:5px;font-size:11px;color:var(--fg3)">${yd}</span></td>
       <td style="text-align:center">${items.length}</td>
       <td style="text-align:center">${totalQty}</td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">
-        $${totalRev.toFixed(2)}
-      </td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">$${totalRev.toFixed(2)}</td>
       <td style="text-align:center;white-space:nowrap" id="hrow-arrow-${date}">
         <button onclick="event.stopPropagation();deleteDateHistory('${date}')"
           title="${dateLabel} 전체 삭제"
@@ -970,63 +1128,130 @@ function renderHistoryTable(dates, byDate) {
       <td colspan="5">
         <div class="detail-inner">
           <table class="detail-table">
-            <thead>
-              <tr>
-                <th style="font-family:'IBM Plex Mono',monospace;font-size:11px">바코드</th>
-                <th>제품명</th>
-                <th style="text-align:center">수량</th>
-                <th style="text-align:right">단가</th>
-                <th style="text-align:right">소계</th>
-                <th style="width:28px"></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map(m => {
-                const bc = _barcodeMap[m.product_id] || '';
-                const bcLink = bc
-                  ? `<a href="/prices.html?barcode=${bc}" title="판매가 관리에서 보기"
-                       style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);text-decoration:none;cursor:pointer"
-                       onclick="event.stopPropagation()">${bc}</a>`
-                  : `<span style="color:var(--fg3)">—</span>`;
-                return `
-                <tr>
-                  <td style="white-space:nowrap">${bcLink}</td>
-                  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${m.product_name||''}">${m.product_name || '—'}</td>
-                  <td style="text-align:center;cursor:pointer" id="hqty-${m.id}"
-                      onclick="event.stopPropagation();editHistoryQty(${m.id},${m.quantity},'${date}')"
-                      title="클릭하여 수량 수정">${m.quantity}</td>
-                  <td style="text-align:right;font-family:'IBM Plex Mono',monospace">$${(m.unit_cost||0).toFixed(2)}</td>
-                  <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600" id="hamt-${m.id}">$${(m.quantity*(m.unit_cost||0)).toFixed(2)}</td>
-                  <td style="text-align:center;padding:4px 6px">
-                    <button onclick="event.stopPropagation();deleteHistoryItem(${m.id},'${date}')"
-                      title="이 항목 삭제"
-                      style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:14px;padding:2px 4px;border-radius:4px;line-height:1"
-                      onmouseover="this.style.color='var(--red)';this.style.background='var(--red-bg)'"
-                      onmouseout="this.style.color='var(--fg3)';this.style.background='none'">✕</button>
-                  </td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td>합계</td>
-                <td></td>
-                <td style="text-align:center" id="hfoot-qty-${date}">${totalQty}</td>
-                <td></td>
-                <td style="text-align:right;font-family:'IBM Plex Mono',monospace" id="hfoot-rev-${date}">$${totalRev.toFixed(2)}</td>
-                <td></td>
-              </tr>
-            </tfoot>
+            <thead><tr>
+              <th style="font-family:'IBM Plex Mono',monospace;font-size:11px">바코드</th>
+              <th>제품명</th>
+              <th style="text-align:center">수량</th>
+              <th style="text-align:right">단가</th>
+              <th style="text-align:right">소계</th>
+              <th style="width:28px"></th>
+            </tr></thead>
+            <tbody>${items.map(mv => {
+              const bc = _barcodeMap[mv.product_id] || '';
+              const bcLink = bc
+                ? `<a href="/prices.html?barcode=${bc}" title="판매가 관리에서 보기"
+                     style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);text-decoration:none;cursor:pointer"
+                     onclick="event.stopPropagation()">${bc}</a>`
+                : `<span style="color:var(--fg3)">—</span>`;
+              return `<tr>
+                <td style="white-space:nowrap">${bcLink}</td>
+                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${mv.product_name||''}">${mv.product_name||'—'}</td>
+                <td style="text-align:center;cursor:pointer" id="hqty-${mv.id}"
+                    onclick="event.stopPropagation();editHistoryQty(${mv.id},${mv.quantity},'${date}')"
+                    title="클릭하여 수량 수정">${mv.quantity}</td>
+                <td style="text-align:right;font-family:'IBM Plex Mono',monospace">$${(mv.unit_cost||0).toFixed(2)}</td>
+                <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600" id="hamt-${mv.id}">$${(mv.quantity*(mv.unit_cost||0)).toFixed(2)}</td>
+                <td style="text-align:center;padding:4px 6px">
+                  <button onclick="event.stopPropagation();deleteHistoryItem(${mv.id},'${date}')"
+                    title="이 항목 삭제"
+                    style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:14px;padding:2px 4px;border-radius:4px;line-height:1"
+                    onmouseover="this.style.color='var(--red)';this.style.background='var(--red-bg)'"
+                    onmouseout="this.style.color='var(--fg3)';this.style.background='none'">✕</button>
+                </td>
+              </tr>`;
+            }).join('')}</tbody>
+            <tfoot><tr>
+              <td>합계</td><td></td>
+              <td style="text-align:center" id="hfoot-qty-${date}">${totalQty}</td>
+              <td></td>
+              <td style="text-align:right;font-family:'IBM Plex Mono',monospace" id="hfoot-rev-${date}">$${totalRev.toFixed(2)}</td>
+              <td></td>
+            </tr></tfoot>
           </table>
         </div>
       </td>
     </tr>`;
   }).join('');
 
-  // Update footer totals
   document.getElementById('footItems').textContent = grandItems;
   document.getElementById('footQty').textContent = grandQty;
   document.getElementById('footRevenue').textContent = `$${grandRev.toFixed(2)}`;
+  tfoot.style.display = '';
+}
+
+function renderMonthlyTable() {
+  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  document.getElementById('yearLabel').textContent = `${_viewYear}년`;
+
+  const tbody = document.getElementById('monthlyBody');
+  const tfoot = document.getElementById('monthlyFoot');
+
+  const monthsWithData = Array.from({length:12}, (_,i) =>
+    `${_viewYear}-${String(i+1).padStart(2,'0')}`).filter(ym => _byMonth[ym]);
+
+  if (!monthsWithData.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">${_viewYear}년 판매 이력이 없습니다</td></tr>`;
+    tfoot.style.display = 'none';
+    return;
+  }
+
+  let grandDays=0, grandItems=0, grandQty=0, grandRev=0;
+  tbody.innerHTML = Array.from({length:12}, (_,i) => {
+    const ym = `${_viewYear}-${String(i+1).padStart(2,'0')}`;
+    const data = _byMonth[ym];
+    if (!data) return '';
+    grandDays  += data.days;
+    grandItems += data.items;
+    grandQty   += data.qty;
+    grandRev   += data.revenue;
+    return `<tr style="cursor:pointer" onclick="switchHistoryTab('daily');_viewMonth='${ym}';renderDailyTable()">
+      <td><strong>${monthNames[i]}</strong></td>
+      <td style="text-align:center">${data.days}일</td>
+      <td style="text-align:center">${data.items}</td>
+      <td style="text-align:center">${data.qty}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">$${data.revenue.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('mfootDays').textContent    = `${grandDays}일`;
+  document.getElementById('mfootItems').textContent   = grandItems;
+  document.getElementById('mfootQty').textContent     = grandQty;
+  document.getElementById('mfootRevenue').textContent = `$${grandRev.toFixed(2)}`;
+  tfoot.style.display = '';
+}
+
+function renderYearlyTable() {
+  const tbody = document.getElementById('yearlyBody');
+  const tfoot = document.getElementById('yearlyFoot');
+  const years = Object.keys(_byYear).sort((a,b) => b.localeCompare(a));
+
+  if (!years.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">판매 이력이 없습니다</td></tr>';
+    tfoot.style.display = 'none';
+    return;
+  }
+
+  let grandDays=0, grandItems=0, grandQty=0, grandRev=0;
+  tbody.innerHTML = years.map(y => {
+    const data = _byYear[y];
+    grandDays  += data.days;
+    grandItems += data.items;
+    grandQty   += data.qty;
+    grandRev   += data.revenue;
+    return `<tr style="cursor:pointer" onclick="switchHistoryTab('monthly');_viewYear='${y}';renderMonthlyTable()">
+      <td><strong>${y}년</strong></td>
+      <td style="text-align:center">${data.months}개월</td>
+      <td style="text-align:center">${data.days}일</td>
+      <td style="text-align:center">${data.items}</td>
+      <td style="text-align:center">${data.qty}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">$${data.revenue.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('yfootDays').textContent    = `${grandDays}일`;
+  document.getElementById('yfootItems').textContent   = grandItems;
+  document.getElementById('yfootQty').textContent     = grandQty;
+  document.getElementById('yfootRevenue').textContent = `$${grandRev.toFixed(2)}`;
   tfoot.style.display = '';
 }
 
