@@ -851,6 +851,16 @@ function renderPreview() {
     const product = inventory.find(p => p.barcode === item.upc);
     const isMatch = !!product;
     if (isMatch) matched++;
+
+    // 금액 없으면 판매가(product.price) 자동 적용
+    if ((!item.amount || item.amount <= 0) && product?.price > 0) {
+      previewItems[idx].amount = product.price * item.qty;
+      previewItems[idx]._autoPrice = product.price;
+    }
+    const dispAmt = previewItems[idx].amount;
+    const autoTag = previewItems[idx]._autoPrice
+      ? `<span style="font-size:9px;color:var(--fg3);margin-left:3px">자동</span>` : '';
+
     totalQty += item.qty;
     const stockInfo = product ? `현재 ${product.stock}개` : '미등록';
     return `
@@ -861,10 +871,10 @@ function renderPreview() {
       </td>
       <td style="text-align:center">
         <input class="qty-input" type="number" min="1" value="${item.qty}"
-          onchange="previewItems[${idx}].qty = +this.value; updateChips()">
+          onchange="previewItems[${idx}].qty=+this.value; if(previewItems[${idx}]._autoPrice){previewItems[${idx}].amount=previewItems[${idx}]._autoPrice*+this.value; var c=document.getElementById('amt-${idx}'); if(c){c.firstChild.textContent='$'+previewItems[${idx}].amount.toFixed(2);}} updateChips()">
       </td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">
-        ${item.amount > 0 ? '$' + item.amount.toFixed(2) : '—'}
+      <td id="amt-${idx}" style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">
+        ${dispAmt > 0 ? `<span>$${dispAmt.toFixed(2)}</span>${autoTag}` : '—'}
       </td>
       <td>
         <span style="font-size:11px;color:${isMatch?'var(--green)':'var(--fg2)'}">
