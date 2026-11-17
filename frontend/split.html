@@ -318,8 +318,8 @@ tbody tr:last-child td { border-bottom: none; }
             <th>일시</th>
             <th>원본 제품</th>
             <th>분할 제품</th>
-            <th>-수량</th>
-            <th>+수량</th>
+            <th style="text-align:center">차감/추가</th>
+            <th style="text-align:center">삭제</th>
           </tr>
         </thead>
         <tbody id="histBody">
@@ -738,27 +738,68 @@ async function doSplit() {
 // ── 이력 ────────────────────────────────────────────────────────
 async function loadHistory() {
   try {
-    const r = await fetch(`${API}/api/stock/movements?type=adj&limit=200`);
+    const r = await fetch(`${API}/api/stock/movements?type=adj&limit=500`);
     const data = await r.json();
     const splits = data.filter(m => m.note && m.note.toLowerCase().includes('split'));
-    const recent = splits.slice(0, 20);
+
+    // created_at 초 단위로 쌍 묶기
+    const groups = {};
+    splits.forEach(m => {
+      const key = (m.created_at || '').slice(0, 19);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(m);
+    });
+
+    // 최신순 20쌍
+    const pairs = Object.entries(groups)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 20);
+
     const tbody = document.getElementById('histBody');
-    if (!recent.length) {
+    if (!pairs.length) {
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--fg3);padding:20px">이력 없음</td></tr>';
       return;
     }
-    tbody.innerHTML = recent.map(m => {
-      const dt  = (m.created_at || '').replace('T', ' ').slice(0, 16);
-      const qty = m.quantity;
-      return `<tr>
+
+    tbody.innerHTML = pairs.map(([ts, ms]) => {
+      const dt   = ts.replace('T', ' ').slice(0, 16);
+      const src  = ms.find(m => m.quantity < 0);
+      const dst  = ms.find(m => m.quantity > 0);
+      const ids  = ms.map(m => m.id).join(',');
+      const srcName = src ? src.product_name : '—';
+      const dstName = dst ? dst.product_name : '—';
+      const srcQty  = src ? src.quantity : '';
+      const dstQty  = dst ? '+' + dst.quantity : '';
+      return `<tr id="hist-row-${ts.replace(/[^0-9]/g,'')}">
         <td class="mono" style="font-size:11px">${dt}</td>
-        <td style="font-size:12px">${m.product_name || ''}</td>
-        <td style="color:var(--fg3);font-size:11px">${m.note || ''}</td>
-        <td class="mono ${qty < 0 ? 'diff-neg' : 'diff-pos'}">${qty > 0 ? '+' : ''}${qty}</td>
-        <td></td>
+        <td style="font-size:12px">${srcName}</td>
+        <td style="font-size:12px;color:var(--fg3)">${dstName}</td>
+        <td class="mono" style="text-align:center;font-size:12px"><span style="color:#e06b8b">${srcQty}</span> / <span style="color:#22c55e">${dstQty}</span></td>
+        <td style="text-align:center">
+          <button onclick="deleteHistory('${ts.replace(/[^0-9]/g,'')}', [${ids}])"
+            style="background:none;border:1px solid #e06b8b;border-radius:4px;color:#e06b8b;font-size:11px;padding:2px 8px;cursor:pointer">삭제</button>
+        </td>
       </tr>`;
     }).join('');
-  } catch {}
+  } catch(e) { console.error(e); }
+}
+
+async function deleteHistory(rowKey, ids) {
+  if (!confirm('이 Split 이력을 삭제하시겠습니까?\n재고도 원래대로 되돌아갑니다.')) return;
+  try {
+    for (const id of ids) {
+      const r = await fetch(`${API}/api/stock/movements/${id}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error(await r.text());
+    }
+    const row = document.getElementById(`hist-row-${rowKey}`);
+    if (row) row.remove();
+    showToast('삭제됨', 'ok');
+    // 패널 재고 갱신
+    _products = await fetch(`${API}/api/products?limit=2000`).then(r=>r.json());
+    refreshPanel();
+  } catch(e) {
+    showToast('삭제 실패: ' + e.message, 'err');
+  }
 }
 
 function showToast(msg, type) {

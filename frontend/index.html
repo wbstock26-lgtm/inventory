@@ -454,7 +454,7 @@ async function loadAll() {
   try {
     [allProducts, allMovements, allOrders] = await Promise.all([
       fetch(`${API}/api/products?limit=2000`).then(r => r.json()),
-      fetch(`${API}/api/stock/movements?limit=500`).then(r => r.json()),
+      fetch(`${API}/api/stock/movements?limit=5000`).then(r => r.json()),
       fetch(`${API}/api/orders?status=received&limit=200`).then(r => r.json()),
     ]);
     applyFilter();
@@ -617,8 +617,9 @@ function renderMonthlyCharts() {
 
   let salesAmt = 0, salesCnt = 0, purchAmt = 0, purchCnt = 0;
   allMovements.forEach(m => {
-    const d = new Date(m.created_at);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    // out 타입은 실제 판매일(order_no), 나머지는 created_at 기준
+    const dateStr = (m.type === 'out' && m.order_no) ? m.order_no : (m.created_at ? m.created_at.slice(0, 10) : '');
+    const key = dateStr.slice(0, 7);
     if (key !== curKey) return;
     if (m.type === 'out') {
       const salePrice = m.unit_cost || priceMap[m.product_id] || 0;

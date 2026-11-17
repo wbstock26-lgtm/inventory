@@ -186,7 +186,7 @@ def get_movements(
     product_id: Optional[int] = None,
     supplier:   Optional[str] = None,
     type:       Optional[str] = Query(None, description="in / out / adj"),
-    limit:      int = Query(100, le=500),
+    limit:      int = Query(100, le=10000),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.StockMovement).order_by(desc(models.StockMovement.created_at))
