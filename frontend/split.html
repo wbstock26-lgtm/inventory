@@ -87,10 +87,30 @@ a { color: inherit; text-decoration: none; }
   justify-content: space-between; align-items: center; gap: 6px; }
 .panel-add-drop-item:hover { background: var(--accent-bg); }
 .panel-list { max-height: calc(100vh - 200px); overflow-y: auto; }
+.panel-group { border-bottom: 1px solid var(--border); }
+.panel-group:last-child { border-bottom: none; }
 .panel-item { padding: 7px 10px 7px 12px; cursor: pointer; display: flex; justify-content: space-between;
-  align-items: center; gap: 6px; border-bottom: 1px solid var(--border); transition: background .1s; }
-.panel-item:last-child { border-bottom: none; }
+  align-items: center; gap: 6px; transition: background .1s; }
 .panel-item:hover { background: var(--accent-bg); }
+.panel-pair-row { display: flex; align-items: center; gap: 5px; padding: 5px 10px 5px 12px;
+  background: var(--surface2); cursor: pointer; font-size: 11px; min-height: 26px;
+  position: relative; transition: background .1s; }
+.panel-pair-row:hover { background: var(--accent-bg); }
+.panel-pair-arrow { color: var(--fg3); flex-shrink: 0; }
+.panel-pair-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--fg2); font-weight: 500; }
+.panel-pair-stock { font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: var(--fg3); flex-shrink: 0; }
+.panel-pair-stock.neg { color: var(--red); }
+.panel-pair-add { flex: 1; color: var(--fg3); }
+.panel-pair-clear { background: none; border: none; color: var(--fg3); cursor: pointer;
+  font-size: 13px; padding: 0 1px; line-height: 1; flex-shrink: 0; }
+.panel-pair-clear:hover { color: var(--red); }
+.panel-pair-editor-input { flex: 1; padding: 3px 6px; border: 1px solid var(--accent); border-radius: 4px;
+  font-size: 11px; font-family: inherit; background: var(--surface); color: var(--fg); min-width: 0; }
+.panel-pair-editor-input:focus { outline: none; }
+.panel-pair-editor-drop { position: absolute; left: 0; right: 0; top: 100%; z-index: 60;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.12); max-height: 160px; overflow-y: auto; margin-top: 1px; }
 .panel-item:hover .panel-item-push { opacity: 1; }
 .panel-item:hover .panel-item-del { opacity: 1; }
 .panel-item-name { font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis;
@@ -314,7 +334,7 @@ tbody tr:last-child td { border-bottom: none; }
 <div class="card right-panel" style="padding:0;overflow:hidden;">
   <div class="panel-header">
     <div class="panel-header-left">
-      <span>📦 24캔 목록</span>
+      <span>✂️ 24/12캔 목록</span>
       <span class="panel-hidden-badge" id="hiddenBadge"></span>
     </div>
     <button class="panel-add-btn" onclick="toggleAddSearch()" title="제품 추가">＋</button>
@@ -340,18 +360,22 @@ let _products = [];
 let srcProduct = null;
 let dstProduct = null;
 let _24canProducts = [];
+let _currentFilter = '';
+let _editingPairId = null;
 
 // ── localStorage helpers ──────────────────────────────────────────
 function lsGet(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
 function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 
-let _hidden  = new Set(lsGet('split_hidden',  []));  // 숨긴 product_id
-let _custom  = new Set(lsGet('split_custom',  []));  // 수동 추가 product_id
-let _ratios  = lsGet('split_ratios', {});             // {product_id: ratio}
+let _hidden  = new Set(lsGet('split_hidden',  []));
+let _custom  = new Set(lsGet('split_custom',  []));
+let _ratios  = lsGet('split_ratios', {});
+let _pairs   = lsGet('split_pairs',  {});
 
 function saveHidden()  { lsSet('split_hidden',  [..._hidden]); }
 function saveCustom()  { lsSet('split_custom',  [..._custom]); }
 function saveRatios()  { lsSet('split_ratios',  _ratios); }
+function savePairs()   { lsSet('split_pairs',   _pairs); }
 
 // ── 제품 목록 로드 ───────────────────────────────────────────────
 async function loadProducts() {
@@ -360,9 +384,14 @@ async function loadProducts() {
   rebuildPanel();
 }
 
+function getCanSize(name) {
+  if (/(^|[^0-9])24([^0-9]|$)/.test(name)) return 24;
+  if (/(^|[^0-9])12([^0-9]|$)/.test(name)) return 12;
+  return 0;
+}
+
 function rebuildPanel() {
-  const is24 = p => /(^|[^0-9])24([^0-9]|$)/.test(p.name);
-  _24canProducts = _products.filter(p => (is24(p) || _custom.has(p.id)) && !_hidden.has(p.id));
+  _24canProducts = _products.filter(p => (getCanSize(p.name) > 0 || _custom.has(p.id)) && !_hidden.has(p.id));
   _24canProducts.sort((a, b) => a.name.localeCompare(b.name));
   updateHiddenBadge();
   filterPanel(document.getElementById('panelSearch').value);
@@ -381,21 +410,60 @@ function renderPanel(list) {
     return;
   }
   el.innerHTML = list.map(p => {
-    const isCustom = _custom.has(p.id);
+    const isCustom  = _custom.has(p.id);
+    const pairId    = _pairs[p.id];
+    const pairProd  = pairId ? _products.find(x => x.id === pairId) : null;
+    const isEditing = _editingPairId === p.id;
+
+    let pairInner;
+    if (isEditing) {
+      pairInner = `
+        <span class="panel-pair-arrow">→</span>
+        <div style="flex:1;position:relative">
+          <input class="panel-pair-editor-input" id="pair-input-${p.id}"
+            placeholder="분할 제품 검색…"
+            oninput="searchPairPartner(this.value, ${p.id})"
+            onclick="event.stopPropagation()"
+            autocomplete="off">
+          <div class="panel-pair-editor-drop" id="pair-drop-${p.id}" style="display:none"></div>
+        </div>`;
+    } else if (pairProd) {
+      pairInner = `
+        <span class="panel-pair-arrow">→</span>
+        <span class="panel-pair-name" title="${pairProd.name}">${pairProd.name}</span>
+        <span class="panel-pair-stock${pairProd.stock < 0 ? ' neg' : ''}">재고 ${pairProd.stock}</span>
+        <button class="panel-pair-clear" onclick="event.stopPropagation();clearPair(${p.id})" title="연결 해제">×</button>`;
+    } else {
+      pairInner = `
+        <span class="panel-pair-arrow">→</span>
+        <span class="panel-pair-add">+ 분할 제품 연결</span>`;
+    }
+
     return `
-    <div class="panel-item" onclick="selectFromPanel(${p.id})">
-      <span class="panel-item-name" title="${p.name}">${p.name}${isCustom ? '<span class="rule-custom-tag">추가</span>' : ''}</span>
-      <span class="panel-item-right">
-        <span class="panel-item-stock${p.stock < 0 ? ' neg' : ''}">재고 ${p.stock}</span>
-        <span class="panel-item-push">▶</span>
-        <button class="panel-item-del" onclick="event.stopPropagation();removeFromPanel(${p.id})" title="목록에서 숨기기">×</button>
-      </span>
+    <div class="panel-group" id="pg-${p.id}">
+      <div class="panel-item" onclick="selectPairSource(${p.id})">
+        <span class="panel-item-name" title="${p.name}">${p.name}${isCustom ? '<span class="rule-custom-tag">추가</span>' : ''}</span>
+        <span class="panel-item-right">
+          <span class="panel-item-stock${p.stock < 0 ? ' neg' : ''}">재고 ${p.stock}</span>
+          <span class="panel-item-push">▶</span>
+          <button class="panel-item-del" onclick="event.stopPropagation();removeFromPanel(${p.id})" title="목록에서 숨기기">×</button>
+        </span>
+      </div>
+      <div class="panel-pair-row" id="prow-${p.id}" onclick="event.stopPropagation();clickPairRow(${p.id})">
+        ${pairInner}
+      </div>
     </div>`;
   }).join('');
+
+  if (_editingPairId !== null) {
+    const inp = document.getElementById(`pair-input-${_editingPairId}`);
+    if (inp) setTimeout(() => inp.focus(), 50);
+  }
 }
 
 function filterPanel(q) {
-  const val = (q || '').trim().toLowerCase();
+  _currentFilter = q || '';
+  const val = _currentFilter.trim().toLowerCase();
   if (!val) { renderPanel(_24canProducts); return; }
   const terms = val.split(/\s+/).filter(Boolean);
   renderPanel(_24canProducts.filter(p => {
@@ -404,10 +472,11 @@ function filterPanel(q) {
   }));
 }
 
+function refreshPanel() { filterPanel(_currentFilter); }
+
 // ── 패널 추가 / 숨기기 ──────────────────────────────────────────
 function removeFromPanel(id) {
-  _hidden.add(id);
-  _custom.delete(id);
+  _hidden.add(id); _custom.delete(id);
   saveHidden(); saveCustom();
   rebuildPanel();
 }
@@ -447,8 +516,7 @@ function searchForAdd(q) {
 }
 
 function addToPanel(id) {
-  _hidden.delete(id);
-  _custom.add(id);
+  _hidden.delete(id); _custom.add(id);
   saveHidden(); saveCustom();
   document.getElementById('addSearchInput').value = '';
   document.getElementById('addSearchDrop').style.display = 'none';
@@ -457,9 +525,55 @@ function addToPanel(id) {
   showToast('✅ 패널에 추가됐습니다', 'ok');
 }
 
-function selectFromPanel(id) {
+// ── 페어 선택 / 편집 ────────────────────────────────────────────
+function selectPairSource(id) {
   selectProduct('src', id);
+  const pairId = _pairs[id];
+  if (pairId) selectProduct('dst', pairId);
   document.getElementById('srcInput').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clickPairRow(id) {
+  if (_editingPairId === id) return;
+  const pairId = _pairs[id];
+  if (pairId) { selectPairSource(id); return; }
+  _editingPairId = id;
+  refreshPanel();
+}
+
+function searchPairPartner(q, fromId) {
+  const drop = document.getElementById(`pair-drop-${fromId}`);
+  const val = q.trim().toLowerCase();
+  if (!val) { drop.style.display = 'none'; return; }
+  const terms = val.split(/\s+/).filter(Boolean);
+  const hits = _products.filter(p => {
+    if (p.id === fromId) return false;
+    const nm = (p.name || '').toLowerCase();
+    return terms.every(t => nm.includes(t));
+  }).slice(0, 8);
+  if (!hits.length) { drop.style.display = 'none'; return; }
+  drop.innerHTML = hits.map(p => `
+    <div class="panel-add-drop-item" onclick="event.stopPropagation();confirmPairPartner(${fromId}, ${p.id})">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${p.name}</span>
+      <span style="font-size:11px;color:var(--fg2);flex-shrink:0">재고 ${p.stock}</span>
+    </div>`).join('');
+  drop.style.display = '';
+}
+
+function confirmPairPartner(fromId, toId) {
+  _pairs[fromId] = toId;
+  savePairs();
+  _editingPairId = null;
+  refreshPanel();
+  selectProduct('src', fromId);
+  selectProduct('dst', toId);
+  showToast('✅ 분할 제품이 연결됐습니다', 'ok');
+}
+
+function clearPair(fromId) {
+  delete _pairs[fromId];
+  savePairs();
+  refreshPanel();
 }
 
 // ── 제품 검색 / 선택 ────────────────────────────────────────────
@@ -487,13 +601,8 @@ function selectProduct(side, id) {
   if (!p) return;
   document.getElementById(side + 'Input').value = p.name;
   document.getElementById(side + 'Drop').style.display = 'none';
-
-  if (side === 'src') {
-    srcProduct = p;
-    updateRuleUI(p);
-  } else {
-    dstProduct = p;
-  }
+  if (side === 'src') { srcProduct = p; updateRuleUI(p); }
+  else { dstProduct = p; }
   updatePreview();
 }
 
@@ -508,7 +617,12 @@ function detectRule(name) {
 
 function getEffectiveRatio(id, name) {
   if (_ratios[id] != null) return _ratios[id];
-  return detectRule(name).ratio;
+  const rule = detectRule(name);
+  if (rule.ratio !== 1) return rule.ratio;
+  const size = getCanSize(name);
+  if (size === 24) return 3;
+  if (size === 12) return 2;
+  return 1;
 }
 
 function updateRuleUI(p) {
@@ -517,10 +631,11 @@ function updateRuleUI(p) {
   const isCustomRatio = _ratios[p.id] != null;
   const ruleEl = document.getElementById('srcRule');
 
+  const effPack = autoRule.pack || getCanSize(p.name);
   let badgeHtml;
-  if (autoRule.pack === 24) {
+  if (effPack === 24) {
     badgeHtml = `<span class="rule-badge rule-24">✂️ 24캔 → 8캔 × ${ratio}개${isCustomRatio ? '<span class="rule-custom-tag">수정됨</span>' : ''}</span>`;
-  } else if (autoRule.pack === 12) {
+  } else if (effPack === 12) {
     badgeHtml = `<span class="rule-badge rule-12">✂️ 12캔 → 6캔 × ${ratio}개${isCustomRatio ? '<span class="rule-custom-tag">수정됨</span>' : ''}</span>`;
   } else {
     badgeHtml = `<span class="rule-badge rule-none">분할 규칙 미감지${isCustomRatio ? '' : ' (1:1)'} ${isCustomRatio ? '→ 1개당 ' + ratio + '개<span class="rule-custom-tag">수정됨</span>' : ''}</span>`;
@@ -559,9 +674,7 @@ function updatePreview() {
   const btn  = document.getElementById('submitBtn');
 
   if (!srcProduct || !dstProduct || qty <= 0) {
-    wrap.style.display = 'none';
-    btn.disabled = true;
-    return;
+    wrap.style.display = 'none'; btn.disabled = true; return;
   }
 
   const ratio = parseInt(document.getElementById('ratioInput').value) || getEffectiveRatio(srcProduct.id, srcProduct.name);
@@ -577,8 +690,7 @@ function updatePreview() {
   document.getElementById('prevDstDiff').textContent   = `(+${added})`;
   document.getElementById('prevRatio').textContent     = `1개 분할 → ${ratio}개 증가`;
 
-  wrap.style.display = '';
-  btn.disabled = false;
+  wrap.style.display = ''; btn.disabled = false;
 }
 
 // ── Split 실행 ──────────────────────────────────────────────────
@@ -596,15 +708,11 @@ async function doSplit() {
       body: JSON.stringify({
         from_product_id: srcProduct.id,
         to_product_id:   dstProduct.id,
-        qty,
-        ratio,
+        qty, ratio,
         note: note || null,
       }),
     });
-    if (!r.ok) {
-      const e = await r.json();
-      throw new Error(e.detail || '오류');
-    }
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || '오류'); }
     const res = await r.json();
     showToast(`✅ Split 완료: ${res.from_product} -${res.qty_removed} / ${res.to_product} +${res.qty_added}`, 'ok');
 
@@ -617,7 +725,7 @@ async function doSplit() {
 
     updatePreview();
     loadHistory();
-    filterPanel(document.getElementById('panelSearch').value);
+    refreshPanel();
   } catch(e) {
     showToast('❌ ' + e.message, 'err');
   }
@@ -629,7 +737,7 @@ async function loadHistory() {
   try {
     const r = await fetch(`${API}/api/stock/movements?type=adj&limit=200`);
     const data = await r.json();
-    const splits = data.filter(m => m.note && (m.note.toLowerCase().includes('split')));
+    const splits = data.filter(m => m.note && m.note.toLowerCase().includes('split'));
     const recent = splits.slice(0, 20);
     const tbody = document.getElementById('histBody');
     if (!recent.length) {
@@ -666,12 +774,18 @@ document.addEventListener('click', e => {
       document.getElementById(s+'Drop').style.display = 'none';
     }
   });
-  // 추가 검색 외부 클릭 닫기
   const addWrap = document.getElementById('addSearchWrap');
   const addBtn  = document.querySelector('.panel-add-btn');
   if (_addOpen && addWrap && !addWrap.contains(e.target) && e.target !== addBtn) {
     _addOpen = false;
     addWrap.style.display = 'none';
+  }
+  if (_editingPairId !== null) {
+    const prow = document.getElementById(`prow-${_editingPairId}`);
+    if (prow && !prow.contains(e.target)) {
+      _editingPairId = null;
+      refreshPanel();
+    }
   }
 });
 
