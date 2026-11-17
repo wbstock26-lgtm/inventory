@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<title>Little Red Deer Store — 재고 관리</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg:       #f0f2f5;
+  --surface:  #ffffff;
+  --surface2: #f7f8fa;
+  --border:   #e4e7ec;
+  --fg:       #111827;
+  --fg2:      #6b7280;
+  --fg3:      #9ca3af;
+  --accent:   #2563eb;
+  --accent-h: #1d4ed8;
+  --accent-bg:#eff6ff;
+  --green:    #16a34a;
+  --green-bg: #f0fdf4;
+  --yellow:   #d97706;
+  --yellow-bg:#fffbeb;
+  --red:      #dc2626;
+  --red-bg:   #fef2f2;
+  --shadow:   0 1px 3px rgba(0,0,0,.08);
+  --radius:   10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+    --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+    --accent:#3b82f6; --accent-h:#2563eb; --accent-bg:#1e2a4a;
+    --green:#4ade80; --green-bg:#0a2010; --yellow:#fbbf24; --yellow-bg:#1f1600;
+    --red:#f87171; --red-bg:#2a0808;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+  --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+  --accent:#3b82f6; --accent-h:#2563eb; --accent-bg:#1e2a4a;
+  --green:#4ade80; --green-bg:#0a2010; --yellow:#fbbf24; --yellow-bg:#1f1600;
+  --red:#f87171; --red-bg:#2a0808;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+}
+
+/* ── Top nav ── */
+.topnav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 max(20px, env(safe-area-inset-left,0px));
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 700; color: var(--fg); text-decoration: none;
+}
+.nav-brand .store-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.nav-links { display: flex; gap: 2px; margin-left: 8px; }
+.nav-link {
+  padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  color: var(--fg2); text-decoration: none; transition: background .1s, color .1s;
+  display: flex; align-items: center; gap: 5px;
+}
+.nav-link:hover { background: var(--surface2); color: var(--fg); }
+.nav-link.active { background: var(--accent-bg); color: var(--accent); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.conn-dot { font-size: 12px; font-weight: 600; }
+
+/* ── Main layout ── */
+.main {
+  padding: 24px max(20px, env(safe-area-inset-left,0px));
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Stats grid ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+.stat-label { font-size: 11px; font-weight: 600; color: var(--fg2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.stat-value { font-size: 28px; font-weight: 700; line-height: 1; }
+.stat-sub { font-size: 12px; color: var(--fg2); margin-top: 5px; }
+.stat-card.accent { border-color: var(--accent); }
+.stat-card.accent .stat-value { color: var(--accent); }
+.stat-card.green { border-color: var(--green); }
+.stat-card.green .stat-value { color: var(--green); }
+.stat-card.yellow { border-color: var(--yellow); }
+.stat-card.yellow .stat-value { color: var(--yellow); }
+.stat-card.red { border-color: var(--red); }
+.stat-card.red .stat-value { color: var(--red); }
+
+/* ── Two-col layout ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+@media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── Section card ── */
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.section-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.section-head h2 { font-size: 14px; font-weight: 600; }
+.section-head a { font-size: 12px; color: var(--accent); text-decoration: none; }
+.section-head a:hover { text-decoration: underline; }
+.section-body { padding: 4px 0; }
+
+/* ── List rows ── */
+.list-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row:hover { background: var(--surface2); }
+.row-name { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub  { font-size: 11px; color: var(--fg2); }
+.row-val  { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.mono     { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--fg3); }
+
+/* ── Badges ── */
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; border: 1px solid;
+  white-space: nowrap;
+}
+.badge-green  { background: var(--green-bg);  color: var(--green);  border-color: var(--green); }
+.badge-yellow { background: var(--yellow-bg); color: var(--yellow); border-color: var(--yellow); }
+.badge-red    { background: var(--red-bg);    color: var(--red);    border-color: var(--red); }
+.badge-blue   { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
+/* ── Quick actions ── */
+.quick-actions { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+.action-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--fg); font-size: 13px; font-weight: 500;
+  text-decoration: none; transition: background .1s, border-color .1s;
+  box-shadow: var(--shadow);
+}
+.action-btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+.action-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.action-btn.primary:hover { background: var(--accent-h); }
+
+/* ── Empty state ── */
+.empty { padding: 32px; text-align: center; color: var(--fg3); font-size: 13px; }
+
+/* ── OCR 패널 ── */
+.ocr-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.ocr-panel .section-head { cursor: pointer; user-select: none; }
+.ocr-panel .section-head:hover { background: var(--surface2); }
+.ocr-body { padding: 16px 18px; }
+.ocr-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  color: var(--fg2);
+  font-size: 13px;
+}
+.ocr-dropzone:hover, .ocr-dropzone.drag { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
+.ocr-dropzone .dz-icon { font-size: 28px; margin-bottom: 6px; }
+#ocrFileInput { position: fixed; top: -9999px; left: -9999px; }
+.ocr-result-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+.ocr-result-table th { padding: 6px 10px; background: var(--surface2); font-size: 11px; font-weight: 600; color: var(--fg2); text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); text-align: left; }
+.ocr-result-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.ocr-result-table tbody tr:last-child td { border-bottom: none; }
+.ocr-result-table tbody tr:hover td { background: var(--surface2); }
+.delta-pos { color: var(--green); font-weight: 600; }
+.delta-neg { color: var(--red); font-weight: 600; }
+.delta-zero { color: var(--fg3); }
+.ocr-actions { display: flex; gap: 10px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+.ocr-progress { font-size: 12px; color: var(--fg2); }
+
+/* ── Inventory table ── */
+.inv-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.inv-table th {
+  padding: 8px 14px; background: var(--surface2);
+  font-size: 11px; font-weight: 600; color: var(--fg2);
+  text-transform: uppercase; letter-spacing: .05em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.inv-table td {
+  padding: 9px 14px; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.inv-table tbody tr:last-child td { border-bottom: none; }
+.inv-table tbody tr:hover td { background: var(--surface2); }
+.dept-badge {
+  display: inline-block; width: 28px; text-align: center;
+  padding: 2px 0; border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700;
+  background: var(--accent-bg); color: var(--accent);
+  cursor: pointer; user-select: none;
+}
+.dept-badge:hover { opacity: .75; }
+.dept-select {
+  font-size: 12px; font-weight: 700; font-family: 'IBM Plex Mono', monospace;
+  padding: 1px 2px; border-radius: 4px; border: 1px solid var(--accent);
+  background: var(--accent-bg); color: var(--accent); cursor: pointer;
+  width: 90px;
+}
+.dept-01 { background: var(--accent-bg); color: var(--accent); }
+.dept-21 { background: var(--yellow-bg); color: var(--yellow); }
+.dept-03 { background: var(--green-bg); color: var(--green); }
+.low-stock { color: var(--red); font-weight: 700; }
+
+/* ── 인라인 편집 ── */
+.editable-cell {
+  cursor: text;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  display: inline-block;
+  min-width: 30px;
+  transition: background .1s;
+}
+.editable-cell:hover { background: var(--accent-bg); color: var(--accent); }
+.sku-label {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--fg3);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-right: 6px;
+  letter-spacing: .02em;
+  vertical-align: middle;
+}
+.edit-input {
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--fg);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.row-saving td { opacity: .6; pointer-events: none; }
+@keyframes flash-ok  { 0%,100%{background:transparent} 50%{background:rgba(22,163,74,.18)} }
+@keyframes flash-err { 0%,100%{background:transparent} 50%{background:rgba(220,38,38,.18)} }
+.flash-ok  { animation: flash-ok  .6s ease; }
+.flash-err { animation: flash-err .6s ease; }
+</style>
+
+<!-- Nav -->
+<nav class="topnav">
+  <a class="nav-brand" href="/">
+    <div class="store-icon">🦌</div>
+    Little Red Deer Store
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="/">🏠 홈</a>
+    <a class="nav-link active" href="/inventory.html">📦 재고 현황</a>
+    <a class="nav-link" href="/import.html">📥 발주 입고</a>
+    <a class="nav-link" href="/sales.html">🛒 판매 입력</a>
+    <a class="nav-link" href="/prices.html">💰 판매가 관리</a>
+    <a class="nav-link" href="/bulk_import.html">📋 제품 일괄등록</a>
+  </div>
+  <div class="nav-right">
+    <a href="https://claude.ai/artifact/BYeqrU4RGJhQ8BzPhePBjP" target="_blank"
+       style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:4px 11px;border-radius:6px;text-decoration:none;white-space:nowrap">📋 운영 가이드</a>
+    <span class="conn-dot" id="connDot">● 연결 중…</span>
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card accent">
+      <div class="stat-label">전체 제품</div>
+      <div class="stat-value" id="statProducts">—</div>
+      <div class="stat-sub">등록된 제품 수</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">총 재고 가치</div>
+      <div class="stat-value" id="statValue">—</div>
+      <div class="stat-sub">원가 기준</div>
+    </div>
+    <div class="stat-card yellow" id="statLowCard">
+      <div class="stat-label">부족 재고</div>
+      <div class="stat-value" id="statLow">—</div>
+      <div class="stat-sub">최소 수량 이하</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">총 주문</div>
+      <div class="stat-value" id="statOrders">—</div>
+      <div class="stat-sub" id="statOrderSub">처리 완료</div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="quick-actions">
+    <a class="action-btn primary" href="/import.html">📥 발주 파일 입고</a>
+    <a class="action-btn" href="/import.html">🔗 SKU 매핑 관리</a>
+  </div>
+
+  <!-- GTI 보고서 재고 대조 -->
+  <div class="ocr-panel" id="ocrPanel">
+    <div class="section-head" onclick="toggleOcr()">
+      <h2>📷 GTI 보고서 재고 대조</h2>
+      <span style="font-size:12px;color:var(--fg2)" id="ocrToggleHint">클릭해서 열기 ▼</span>
+    </div>
+    <div class="ocr-body" id="ocrBody" style="display:none">
+      <input type="file" id="ocrFileInput" accept="image/*,.pdf" multiple>
+      <div class="ocr-dropzone" id="ocrDropzone">
+        <div class="dz-icon">📄</div>
+        <div>GTI 보고서 스크린샷을 드래그하거나 클릭해서 선택</div>
+        <div style="font-size:11px;margin-top:4px;color:var(--fg3)">PNG, JPG, PDF 지원</div>
+      </div>
+      <div id="ocrResultArea" style="display:none">
+        <div class="ocr-actions">
+          <button class="action-btn primary" id="ocrApplyBtn" onclick="applyOcrResult()" style="display:none">✅ 재고 적용</button>
+          <button class="action-btn" onclick="resetOcr()">🔄 초기화</button>
+          <span class="ocr-progress" id="ocrStatus"></span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="ocr-result-table">
+            <thead><tr>
+              <th>UPC</th><th>제품명</th><th>현재 재고</th><th>보고서 수량</th><th>변동</th><th>상태</th>
+            </tr></thead>
+            <tbody id="ocrTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 최근 주문 -->
+  <div class="section-card" style="margin-bottom:20px">
+    <div class="section-head">
+      <h2>📋 최근 주문</h2>
+      <a href="/import.html">전체 보기 →</a>
+    </div>
+    <div class="section-body" id="recentOrders">
+      <div class="empty">불러오는 중…</div>
+    </div>
+  </div>
+
+  <!-- 재고 현황 테이블 -->
+  <div class="section-card" style="margin-bottom:20px">
+    <div class="section-head">
+      <h2>📦 재고 현황</h2>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 10px;min-width:180px">
+          <span style="color:var(--fg3);font-size:13px">🔍</span>
+          <input id="invSearch" type="text" placeholder="제품명, UPC 또는 DEPT(01·21·03)…"
+            style="border:none;outline:none;background:transparent;color:var(--fg);font-size:12px;width:100%"
+            oninput="renderProducts(_lastProducts)">
+          <button id="invSearchClear" onclick="document.getElementById('invSearch').value='';renderProducts(_lastProducts)"
+            style="border:none;background:none;cursor:pointer;color:var(--fg3);font-size:14px;padding:0;line-height:1;display:none">✕</button>
+        </div>
+        <span style="font-size:12px;color:var(--fg2)" id="productCount">—개 제품</span>
+        <select id="invSort" onchange="renderProducts(_lastProducts)" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--fg);cursor:pointer">
+          <option value="dept">Dept 순</option>
+          <option value="stock-desc">재고 많은 순</option>
+          <option value="stock-asc">재고 적은 순</option>
+          <option value="name">제품명 순</option>
+          <option value="vendor">공급사 순</option>
+        </select>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="inv-table" id="productList">
+        <thead>
+          <tr>
+            <th>Dept</th>
+            <th>UPC</th>
+            <th>제품명</th>
+            <th style="text-align:right">수량 ✏️</th>
+            <th style="text-align:right">단가</th>
+            <th style="text-align:right">Total</th>
+            <th style="text-align:right">판매가</th>
+            <th style="text-align:center">상태</th>
+          </tr>
+        </thead>
+        <tbody id="productTbody">
+          <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg3)">불러오는 중…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 최근 재고 이동 -->
+  <div class="section-card" style="margin-bottom:20px">
+    <div class="section-head">
+      <h2>🔄 최근 재고 이동</h2>
+      <span style="font-size:12px;color:var(--fg2)" id="mvCount"></span>
+    </div>
+    <div class="section-body" id="movementList">
+      <div class="empty">불러오는 중…</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+
+async function api(path) {
+  const res = await fetch(API_BASE + path);
+  if (!res.ok) throw new Error(res.status);
+  return res.json();
+}
+
+function fmt(n) { return '$' + Number(n).toFixed(2); }
+function dtStr(s) { return s ? s.replace('T',' ').substring(0,16) : '—'; }
+
+const SUP_CLASS = { Connect:'badge-blue', BDL:'badge-yellow', Sleeman:'badge-green' };
+const STATUS_CLASS = { received:'badge-green', pending:'badge-yellow' };
+const STATUS_LABEL = { received:'입고완료', pending:'대기중' };
+
+async function loadAll() {
+  const dot = document.getElementById('connDot');
+  try {
+    // 병렬 로드
+    const [products, orders, movements, skuList] = await Promise.all([
+      api('/api/products?limit=2000'),
+      api('/api/orders?limit=20'),
+      api('/api/stock/movements?limit=15'),
+      api('/api/sku-map').catch(() => []),
+    ]);
+    window._skuMap = {};
+    skuList.forEach(s => { if (s.product_id) window._skuMap[s.product_id] = s.item_no; });
+
+    dot.textContent = '● 서버 연결됨';
+    dot.style.color = 'var(--green)';
+
+    renderStats(products, orders);
+    renderOrders(orders);
+    renderProducts(products);
+    renderMovements(movements);
+
+  } catch {
+    dot.textContent = '● 서버 오프라인';
+    dot.style.color = 'var(--red)';
+    ['recentOrders','productList','movementList'].forEach(id => {
+      document.getElementById(id).innerHTML = '<div class="empty">서버에 연결할 수 없습니다.<br>start.bat을 실행해주세요.</div>';
+    });
+    document.getElementById('statProducts').textContent = '—';
+    document.getElementById('statValue').textContent = '—';
+    document.getElementById('statLow').textContent = '—';
+    document.getElementById('statOrders').textContent = '—';
+  }
+}
+
+function renderStats(products, orders) {
+  const totalValue = products.reduce((s, p) => s + (p.stock * p.cost), 0);
+  const lowCount   = products.filter(p => p.stock <= p.min_stock).length;
+  const rcvOrders  = orders.filter(o => o.status === 'received').length;
+
+  document.getElementById('statProducts').textContent = products.length;
+  document.getElementById('statValue').textContent = '$' + Math.round(totalValue).toLocaleString();
+  document.getElementById('statLow').textContent = lowCount;
+  document.getElementById('statOrders').textContent = orders.length;
+  document.getElementById('statOrderSub').textContent = `${rcvOrders}건 입고완료`;
+  document.getElementById('productCount').textContent = `${products.length}개 제품`;
+
+  if (lowCount > 0) {
+    document.getElementById('statLowCard').classList.add('red');
+    document.getElementById('statLowCard').classList.remove('yellow');
+  }
+}
+
+function renderOrders(orders) {
+  const el = document.getElementById('recentOrders');
+  if (!orders.length) { el.innerHTML = '<div class="empty">주문 없음</div>'; return; }
+  el.innerHTML = orders.slice(0,8).map(o => `
+    <div class="list-row">
+      <span class="badge ${SUP_CLASS[o.supplier] || 'badge-blue'}">${o.supplier}</span>
+      <span class="row-name">${o.order_no}</span>
+      <span class="row-sub">${o.item_count}품목</span>
+      <span class="row-val">${fmt(o.total_amount)}</span>
+      <span class="badge ${STATUS_CLASS[o.status] || 'badge-yellow'}">${STATUS_LABEL[o.status] || o.status}</span>
+    </div>
+  `).join('');
+}
+
+const DEPT_MAP = { Connect: '01', BDL: '21', Sleeman: '03' };
+let _lastProducts = [];
+
+function renderProducts(products) {
+  _lastProducts = products;
+  const tbody = document.getElementById('productTbody');
+
+  // 검색 필터
+  const q = (document.getElementById('invSearch')?.value || '').trim().toLowerCase();
+  const clearBtn = document.getElementById('invSearchClear');
+  if (clearBtn) clearBtn.style.display = q ? '' : 'none';
+  const filtered = q
+    ? products.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.barcode || '').toLowerCase().includes(q) ||
+        (DEPT_MAP[p.vendor] || '').includes(q) ||
+        ((window._skuMap||{})[p.id] || '').toLowerCase().includes(q)
+      )
+    : products;
+
+  document.getElementById('productCount').textContent =
+    q ? `${filtered.length} / ${products.length}개` : `${products.length}개 제품`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = q
+      ? `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg3)">"${q}" 검색 결과 없음</td></tr>`
+      : '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--fg3)">등록된 제품 없음<br><small>발주 파일 입고 시 자동 등록됩니다</small></td></tr>';
+    return;
+  }
+
+  const sort = document.getElementById('invSort')?.value || 'dept';
+  const sorted = [...filtered].sort((a,b) => {
+    if (sort === 'stock-desc') return b.stock - a.stock;
+    if (sort === 'stock-asc')  return a.stock - b.stock;
+    if (sort === 'name')   return a.name.localeCompare(b.name);
+    if (sort === 'vendor') return (a.vendor||'').localeCompare(b.vendor||'');
+    // dept (default)
+    const da = DEPT_MAP[a.vendor] || '99', db = DEPT_MAP[b.vendor] || '99';
+    return da !== db ? da.localeCompare(db) : a.name.localeCompare(b.name);
+  });
+
+
+  tbody.innerHTML = sorted.map(p => {
+    const dept = DEPT_MAP[p.vendor] || '—';
+    const deptClass = `dept-${dept}`;
+    const unitCost = p.cost;
+    const total = (p.stock * unitCost).toFixed(2);
+    const isOut = p.stock <= 0;
+    const isLow = !isOut && p.stock <= p.min_stock;
+    const lowCls = isLow || isOut ? ' low-stock' : '';
+    const badgeLabel = p.stock < 0 ? `마이너스(${p.stock})` : '품절';
+    const badge = isOut
+      ? `<span style="display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--red-bg);color:var(--red)">${badgeLabel}</span>`
+      : isLow
+      ? '<span style="display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--yellow-bg);color:var(--yellow)">부족</span>'
+      : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green)">정상</span>';
+    return `
+    <tr data-id="${p.id}" data-stock="${p.stock}" data-vendor="${p.vendor||''}">
+      <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})">${dept}</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2)">
+        ${p.barcode || '—'}
+      </td>
+      <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif">
+        ${(window._skuMap||{})[p.id] ? `<span class="sku-label">${(window._skuMap||{})[p.id]}</span>` : ''}${p.name}
+      </td>
+      <td style="text-align:right">
+        <span class="editable-cell${lowCls}" onclick="startEdit(this,${p.id},'stock',${p.stock})">${p.stock}</span>
+      </td>
+      <td style="text-align:right;color:var(--fg2)">
+        ${fmt(unitCost)}
+      </td>
+      <td style="text-align:right;font-weight:600;color:var(--fg2)">${fmt(total)}</td>
+      <td style="text-align:right;color:var(--fg2)">
+        ${p.price > 0 ? fmt(p.price) : '<span style="color:var(--fg3)">미설정</span>'}
+      </td>
+      <td style="text-align:center">${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMovements(movements) {
+  const el = document.getElementById('movementList');
+  document.getElementById('mvCount').textContent = `${movements.length}건`;
+  if (!movements.length) { el.innerHTML = '<div class="empty">재고 이동 내역 없음</div>'; return; }
+  el.innerHTML = movements.map(m => {
+    const qty = m.quantity;
+    const effQty = m.type === 'out' ? -Math.abs(qty) : qty; // adj can be negative
+    const sign = effQty >= 0 ? '+' : '';
+    const color = effQty < 0 ? 'var(--red)' : 'var(--green)';
+    return `
+    <div class="list-row">
+      <span class="badge ${m.type==='in'?'badge-green':m.type==='out'?'badge-red':'badge-yellow'}">${m.type==='in'?'입고':m.type==='out'?'출고':'조정'}</span>
+      <span class="row-name">${m.product_name || '—'}</span>
+      <span class="mono">${m.supplier || ''} ${m.order_no || ''}</span>
+      <span class="row-val" style="color:${color}">${sign}${effQty}</span>
+      <span style="font-size:11px;color:var(--fg3);min-width:60px;text-align:right">${m.stock_before}→${m.stock_after}</span>
+    </div>`;
+  }).join('');
+}
+
+loadAll();
+
+// ── 인라인 편집 ───────────────────────────────
+let _editActive = null;
+
+function startEdit(span, productId, field, currentVal) {
+  if (_editActive) cancelEdit();
+
+  const isStock  = field === 'stock';
+  const isExpr   = field === 'cost' || field === 'price';
+  const rawVal   = String(currentVal).replace(/^\$/, '');
+
+  const input = document.createElement('input');
+  input.className = 'edit-input';
+  input.type  = isStock ? 'number' : 'text';
+  input.value = rawVal;
+  if (isStock) { input.step = '1'; }
+  if (isExpr)  { input.placeholder = '예: 15.99 / 6'; }
+  input.style.width = Math.max(60, span.offsetWidth + 20) + 'px';
+
+  const originalHtml = span.innerHTML;
+  span.innerHTML = '';
+  span.appendChild(input);
+  input.focus(); input.select();
+  _editActive = { span, originalHtml, productId, field };
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); saveEdit(input, productId, field, originalHtml); }
+    if (e.key === 'Escape') { cancelEdit(); }
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(() => { if (_editActive) saveEdit(input, productId, field, originalHtml); }, 100);
+  });
+}
+
+function cancelEdit() {
+  if (!_editActive) return;
+  _editActive.span.innerHTML = _editActive.originalHtml;
+  _editActive = null;
+}
+
+async function saveEdit(input, productId, field, originalHtml) {
+  if (!_editActive) return;
+  const { span } = _editActive;
+  _editActive = null;
+
+  const newVal = input.value.trim();
+  if (!newVal && newVal !== '0') { span.innerHTML = originalHtml; return; }
+
+  const tr = span.closest('tr');
+  tr.classList.add('row-saving');
+
+  try {
+    if (field === 'stock') {
+      const newQty  = parseInt(newVal, 10);
+      const curQty  = parseInt(tr.dataset.stock, 10);
+      const delta   = newQty - curQty;
+      if (delta !== 0) {
+        const r = await fetch(`${API_BASE}/api/stock/adjust`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: productId, quantity: delta, note: '직접 수정' })
+        });
+        if (!r.ok) throw new Error(await r.text());
+        tr.dataset.stock = newQty;
+      }
+      span.textContent = newQty;
+    } else {
+      const body = {};
+      if (field === 'cost' || field === 'price') {
+        let computed;
+        try {
+          // 사칙연산 허용: 숫자, 공백, +−*/().만 허용
+          if (!/^[\d\s\+\-\*\/\.\(\)]+$/.test(newVal)) throw new Error('invalid');
+          computed = Function('"use strict"; return (' + newVal + ')')();
+          if (!isFinite(computed) || computed < 0) throw new Error('invalid');
+        } catch { span.innerHTML = originalHtml; tr.classList.remove('row-saving'); return; }
+        body[field] = Math.round(computed * 10000) / 10000;
+      } else body[field] = newVal;
+
+      const r = await fetch(`${API_BASE}/api/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const updated = await r.json();
+
+      if (field === 'barcode') span.textContent = updated.barcode || '—';
+      else if (field === 'name') span.textContent = updated.name;
+      else if (field === 'cost') span.textContent = '$' + Number(updated.cost).toFixed(2);
+      else if (field === 'price') span.textContent = updated.price > 0 ? '$' + Number(updated.price).toFixed(2) : '미설정';
+    }
+
+    tr.classList.remove('row-saving');
+    tr.classList.add('flash-ok');
+    bc.postMessage('refresh');
+    setTimeout(() => tr.classList.remove('flash-ok'), 650);
+  } catch(e) {
+    span.innerHTML = originalHtml;
+    tr.classList.remove('row-saving');
+    tr.classList.add('flash-err');
+    setTimeout(() => tr.classList.remove('flash-err'), 650);
+    console.error('저장 실패:', e.message);
+  }
+}
+
+// ── DEPT(vendor) 인라인 편집 ───────────────────
+const VENDOR_OPTIONS = [
+  { label: '—',       value: '' },
+  { label: 'Connect', value: 'Connect' },
+  { label: 'BDL',     value: 'BDL' },
+  { label: 'Sleeman', value: 'Sleeman' },
+];
+
+function startDeptEdit(badge, productId) {
+  const tr = badge.closest('tr');
+  const curVendor = tr.dataset.vendor || '';
+
+  const sel = document.createElement('select');
+  sel.className = 'dept-select';
+  VENDOR_OPTIONS.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.value; opt.textContent = o.label;
+    if (o.value === curVendor) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  badge.replaceWith(sel);
+  sel.focus();
+
+  async function commit() {
+    const newVendor = sel.value;
+    const newDept   = DEPT_MAP[newVendor] || '—';
+    const newClass  = `dept-badge dept-${newDept}`;
+    const newBadge  = document.createElement('span');
+    newBadge.className = newClass;
+    newBadge.textContent = newDept;
+    newBadge.onclick = () => startDeptEdit(newBadge, productId);
+    sel.replaceWith(newBadge);
+
+    if (newVendor === curVendor) return;
+    tr.dataset.vendor = newVendor;
+    tr.classList.add('row-saving');
+    try {
+      const r = await fetch(`${API_BASE}/api/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendor: newVendor || null })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      tr.classList.remove('row-saving');
+      tr.classList.add('flash-ok');
+      bc.postMessage('refresh');
+      setTimeout(() => tr.classList.remove('flash-ok'), 650);
+    } catch(e) {
+      tr.classList.remove('row-saving');
+      tr.classList.add('flash-err');
+      setTimeout(() => tr.classList.remove('flash-err'), 650);
+    }
+  }
+
+  sel.addEventListener('change', commit);
+  sel.addEventListener('blur', () => setTimeout(commit, 100));
+  sel.addEventListener('keydown', e => { if (e.key === 'Escape') { sel.replaceWith(badge); } });
+}
+
+// ── OCR 재고 대조 ──────────────────────────────
+let ocrItems = [];   // [{upc, name, qty}]
+
+function toggleOcr() {
+  const body = document.getElementById('ocrBody');
+  const hint = document.getElementById('ocrToggleHint');
+  const open = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  hint.textContent = open ? '클릭해서 닫기 ▲' : '클릭해서 열기 ▼';
+}
+
+(function initOcr() {
+  const dz   = document.getElementById('ocrDropzone');
+  const inp  = document.getElementById('ocrFileInput');
+
+  dz.addEventListener('click', () => inp.click());
+  inp.addEventListener('change', () => { if (inp.files.length) processOcrFiles(inp.files); });
+
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag');
+    if (e.dataTransfer.files.length) processOcrFiles(e.dataTransfer.files);
+  });
+})();
+
+async function processOcrFiles(files) {
+  setOcrStatus('OCR 처리 중…');
+  ocrItems = [];
+  const seen = new Map();
+
+  for (const file of files) {
+    try {
+      let items = [];
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        const form = new FormData();
+        form.append('file', file, file.name);
+        const r = await fetch(`${API_BASE}/api/ocr/pdf?include_zero=true`, { method: 'POST', body: form });
+        if (!r.ok) throw new Error(await r.text());
+        const d = await r.json();
+        items = d.items.map(i => ({ upc: i.upc, name: i.name, qty: i.qty || 0 }));
+      } else {
+        const form = new FormData();
+        form.append('file', file);
+        const r = await fetch(`${API_BASE}/api/ocr/image?include_zero=true`, { method: 'POST', body: form });
+        if (!r.ok) throw new Error(await r.text());
+        const d = await r.json();
+        items = d.items.map(i => ({ upc: i.upc, name: i.name, qty: i.qty || 0 }));
+      }
+      items.forEach(i => {
+        if (!seen.has(i.upc)) seen.set(i.upc, i);
+        else if (i.qty > seen.get(i.upc).qty) seen.set(i.upc, i);
+      });
+    } catch(e) {
+      setOcrStatus(`오류: ${e.message}`);
+    }
+  }
+
+  ocrItems = [...seen.values()];
+  if (!ocrItems.length) { setOcrStatus('인식된 제품 없음'); return; }
+
+  // 현재 재고와 비교
+  const products = await api('/api/products?limit=500');
+  const stockMap = new Map(products.map(p => [p.barcode, p]));
+
+  renderOcrTable(ocrItems, stockMap);
+  setOcrStatus(`${ocrItems.length}개 항목 인식됨`);
+}
+
+function renderOcrTable(items, stockMap) {
+  const tbody = document.getElementById('ocrTbody');
+  let hasChange = false;
+  tbody.innerHTML = items.map(i => {
+    const p     = stockMap.get(i.upc) || stockMap.get(i.upc.replace(/^0+/, '').padStart(12, '0'));
+    const cur   = p ? p.stock : null;
+    const delta = (cur !== null) ? (i.qty - cur) : null;
+    if (delta !== null && delta !== 0) hasChange = true;
+
+    const deltaHtml = delta === null ? '<span style="color:var(--fg3)">미등록</span>'
+      : delta > 0 ? `<span class="delta-pos">+${delta}</span>`
+      : delta < 0 ? `<span class="delta-neg">${delta}</span>`
+      : '<span class="delta-zero">변동없음</span>';
+
+    const statusHtml = p
+      ? (delta === 0 ? '<span class="badge badge-green">일치</span>' : '<span class="badge badge-yellow">변동</span>')
+      : '<span class="badge badge-red">미등록</span>';
+
+    return `<tr>
+      <td style="font-family:monospace;font-size:11px;color:var(--fg2)">${i.upc}</td>
+      <td style="font-weight:500">${i.name}</td>
+      <td style="text-align:right">${cur !== null ? cur : '—'}</td>
+      <td style="text-align:right;font-weight:600">${i.qty}</td>
+      <td style="text-align:right">${deltaHtml}</td>
+      <td>${statusHtml}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('ocrResultArea').style.display = '';
+  document.getElementById('ocrApplyBtn').style.display = hasChange ? '' : 'none';
+}
+
+async function applyOcrResult() {
+  if (!ocrItems.length) return;
+  const btn = document.getElementById('ocrApplyBtn');
+  btn.disabled = true;
+  setOcrStatus('재고 적용 중…');
+  try {
+    const r = await fetch(`${API_BASE}/api/stock/bulk-set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ocrItems.map(i => ({ barcode: i.upc, qty: i.qty })))
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    setOcrStatus(`✅ 완료 — ${d.matched}개 조정, ${d.unchanged}개 변동없음, ${d.not_found}개 미등록`);
+    btn.style.display = 'none';
+    bc.postMessage('refresh');
+    loadAll();
+  } catch(e) {
+    setOcrStatus(`오류: ${e.message}`);
+  }
+  btn.disabled = false;
+}
+
+function resetOcr() {
+  ocrItems = [];
+  document.getElementById('ocrTbody').innerHTML = '';
+  document.getElementById('ocrResultArea').style.display = 'none';
+  document.getElementById('ocrFileInput').value = '';
+  setOcrStatus('');
+}
+
+function setOcrStatus(msg) {
+  document.getElementById('ocrStatus').textContent = msg;
+}
+
+// ── 실시간 갱신 ──────────────────────────────
+// 1) prices.html 등 같은 브라우저 탭들에서 저장 시 즉시 갱신
+const bc = new BroadcastChannel('inventory-update');
+bc.onmessage = () => loadAll();
+
+// 2) 다른 창/기기에서 돌아왔을 때(탭 전환) 갱신
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadAll();
+});
+</script>

@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<title>판매 입력 — Little Red Deer Store</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --bg:#f0f2f5; --surface:#fff; --surface2:#f7f8fa; --border:#e4e7ec;
+  --fg:#111827; --fg2:#6b7280; --fg3:#9ca3af;
+  --accent:#2563eb; --accent-h:#1d4ed8; --accent-bg:#eff6ff;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --yellow:#d97706; --yellow-bg:#fffbeb;
+  --red:#dc2626; --red-bg:#fef2f2;
+  --shadow:0 1px 3px rgba(0,0,0,.08); --radius:10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+    --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+    --accent:#3b82f6; --accent-h:#2563eb; --accent-bg:#1e2a4a;
+    --green:#4ade80; --green-bg:#0a2010; --yellow:#fbbf24; --yellow-bg:#1f1600;
+    --red:#f87171; --red-bg:#2a0808; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+  --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+  --accent:#3b82f6; --accent-h:#2563eb; --accent-bg:#1e2a4a;
+  --green:#4ade80; --green-bg:#0a2010; --yellow:#fbbf24; --yellow-bg:#1f1600;
+  --red:#f87171; --red-bg:#2a0808; color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background: var(--bg); color: var(--fg); min-height: 100vh; }
+
+.topnav {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 max(20px, env(safe-area-inset-left,0px));
+  display: flex; align-items: center; gap: 16px; height: 56px;
+  position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.nav-brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; color: var(--fg); text-decoration: none; }
+.nav-brand .store-icon { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #dc2626, #991b1b); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.nav-links { display: flex; gap: 2px; margin-left: 8px; }
+.nav-link { padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--fg2); text-decoration: none; display: flex; align-items: center; gap: 5px; }
+.nav-link:hover { background: var(--surface2); color: var(--fg); }
+.nav-link.active { background: var(--accent-bg); color: var(--accent); }
+.nav-right { margin-left: auto; }
+
+.main { padding: 24px max(20px, env(safe-area-inset-left,0px)); max-width: 1100px; margin: 0 auto; }
+.page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: var(--fg2); margin-bottom: 20px; }
+
+/* Two-panel layout */
+.panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 800px) { .panels { grid-template-columns: 1fr; } }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.card-head { padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 16px 18px; }
+
+/* Paste area */
+.paste-area {
+  width: 100%; min-height: 180px; resize: vertical;
+  border: 2px dashed var(--border); border-radius: 8px;
+  background: var(--surface2); color: var(--fg);
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  padding: 12px; outline: none; transition: border-color .15s;
+  line-height: 1.6;
+}
+.paste-area:focus { border-color: var(--accent); }
+.paste-area::placeholder { color: var(--fg3); font-family: 'Inter', sans-serif; font-size: 13px; }
+
+/* Date row */
+.date-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.date-row label { font-size: 13px; font-weight: 500; color: var(--fg2); white-space: nowrap; }
+.date-input {
+  padding: 7px 12px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--fg); font-size: 13px;
+}
+.date-input:focus { outline: none; border-color: var(--accent); }
+
+/* Buttons */
+.btn { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .1s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-secondary { background: var(--surface2); color: var(--fg); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+
+/* Preview table */
+.preview-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.preview-table th {
+  padding: 8px 12px; background: var(--surface2);
+  font-size: 11px; font-weight: 600; color: var(--fg2);
+  text-transform: uppercase; letter-spacing: .05em;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.preview-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.preview-table tbody tr:last-child td { border-bottom: none; }
+.preview-table tbody tr:hover td { background: var(--surface2); }
+.preview-table tbody tr.unmatched td { background: var(--red-bg); }
+.preview-table tbody tr.unmatched td:first-child { border-left: 3px solid var(--red); }
+
+/* Qty input */
+.qty-input {
+  width: 70px; padding: 5px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--fg); font-size: 13px; font-weight: 600; text-align: center;
+}
+.qty-input:focus { outline: none; border-color: var(--accent); }
+
+/* Summary chips */
+.chip-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; font-size: 12px; }
+.chip strong { font-size: 15px; font-weight: 700; display: block; }
+.chip.green strong { color: var(--green); }
+.chip.red strong { color: var(--red); }
+.chip.accent strong { color: var(--accent); }
+
+/* Result panel */
+.result-panel { display: none; }
+.result-panel.show { display: block; }
+.result-row { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.result-row:last-child { border-bottom: none; }
+.stock-change { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--fg3); }
+
+/* Toast */
+#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--fg); color: var(--bg); padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 100; opacity: 0; transition: transform .25s, opacity .25s; pointer-events: none; }
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+#toast.error { background: var(--red); color: #fff; }
+#toast.success { background: var(--green); color: #fff; }
+
+.empty { padding: 32px; text-align: center; color: var(--fg3); font-size: 13px; }
+.note-hint { font-size: 11px; color: var(--fg3); margin-top: 6px; line-height: 1.6; }
+
+/* PDF drop zone */
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: 8px;
+  background: var(--surface2); padding: 24px 16px;
+  text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent); background: var(--accent-bg);
+}
+.drop-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.drop-zone-icon { font-size: 28px; margin-bottom: 6px; }
+.drop-zone-label { font-size: 13px; font-weight: 500; color: var(--fg2); }
+.drop-zone-sub { font-size: 11px; color: var(--fg3); margin-top: 4px; }
+.drop-zone.loaded { border-color: var(--green); background: var(--green-bg); }
+.drop-zone.loaded .drop-zone-label { color: var(--green); }
+
+/* Tabs */
+.input-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.input-tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--fg2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .1s; }
+.input-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Sales History */
+.history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; align-items: start; }
+@media (max-width: 800px) { .history-grid { grid-template-columns: 1fr; } }
+.history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.history-table th { padding: 8px 14px; background: var(--surface2); font-size: 11px; font-weight: 600; color: var(--fg2); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.history-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+.history-table tfoot td { border-bottom: none; border-top: 2px solid var(--border); font-weight: 700; background: var(--surface2); }
+.history-table tbody tr.history-date-row { cursor: pointer; }
+.history-table tbody tr.history-date-row:hover td { background: var(--surface2); }
+.history-table tbody tr.history-date-row.active-row td { background: var(--accent-bg); color: var(--accent); }
+.history-table tbody tr.detail-row td { padding: 0; background: var(--surface2); }
+.detail-inner { padding: 10px 14px 14px; }
+.detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.detail-table th { padding: 5px 10px; font-size: 11px; color: var(--fg2); font-weight: 600; text-align: left; white-space: nowrap; }
+.detail-table td { padding: 6px 10px; border-top: 1px solid var(--border); }
+.detail-table tfoot td { border-top: 2px solid var(--border); font-weight: 700; }
+.detail-table td[id^="hqty-"]:hover { background: var(--accent-bg); border-radius: 4px; }
+</style>
+
+<!-- Nav -->
+<nav class="topnav">
+  <a class="nav-brand" href="/"><div class="store-icon">🦌</div>Little Red Deer Store</a>
+  <div class="nav-links">
+    <a class="nav-link" href="/">🏠 홈</a>
+    <a class="nav-link" href="/inventory.html">📦 재고 현황</a>
+    <a class="nav-link" href="/import.html">📥 발주 입고</a>
+    <a class="nav-link active" href="/sales.html">🛒 판매 입력</a>
+    <a class="nav-link" href="/prices.html">💰 판매가 관리</a>
+    <a class="nav-link" href="/bulk_import.html">📋 제품 일괄등록</a>
+  </div>
+  <div class="nav-right">
+    <a href="https://claude.ai/artifact/BYeqrU4RGJhQ8BzPhePBjP" target="_blank"
+       style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:4px 11px;border-radius:6px;text-decoration:none;white-space:nowrap">📋 운영 가이드</a>
+    <span style="font-size:12px;font-weight:600" id="connDot">● 연결 중…</span>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">🛒 전일 판매 입력</div>
+  <div class="page-sub">GTI 판매 리포트를 붙여넣거나 직접 입력하여 재고를 차감합니다.</div>
+
+  <div class="panels">
+
+    <!-- 왼쪽: 입력 패널 -->
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head">📋 판매 데이터 입력</div>
+        <div class="card-body">
+
+          <!-- 날짜 -->
+          <div class="date-row">
+            <label>판매일</label>
+            <input class="date-input" type="date" id="saleDate">
+            <button class="btn btn-secondary" onclick="setYesterday()">전일</button>
+          </div>
+
+          <!-- 통합 업로드 영역 -->
+          <div class="drop-zone" id="dropZone">
+            <input type="file" accept=".pdf,image/*" id="fileInput" onchange="handleAnyFile(this.files[0])">
+            <div class="drop-zone-icon" id="dropIcon">📂</div>
+            <div class="drop-zone-label" id="dropLabel">PDF 또는 스크린샷을 드래그하거나 클릭하세요</div>
+            <div class="drop-zone-sub">PDF · PNG · JPG · BMP 지원</div>
+          </div>
+          <div id="uploadStatus" style="margin-top:8px;font-size:12px;color:var(--fg2);min-height:18px"></div>
+          <div id="ocrProgress" style="display:none;margin-top:6px">
+            <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+              <div id="ocrBar" style="height:100%;background:var(--accent);width:0%;transition:width .2s"></div>
+            </div>
+          </div>
+
+          <!-- 텍스트 붙여넣기 (접힘) -->
+          <details style="margin-top:10px">
+            <summary style="cursor:pointer;font-size:12px;color:var(--fg2);user-select:none;padding:4px 0">📋 텍스트 직접 붙여넣기</summary>
+            <div style="margin-top:8px">
+              <textarea class="paste-area" id="pasteArea"
+                placeholder="GTI Department Sales By Date 리포트를 여기에 붙여넣으세요.&#10;&#10;형식 예시:&#10;048415000307 - J.P Wiser's Deluxe 750    1    $37.51&#10;062067318344 - Busch 8Pk (24)              2    $34.98"></textarea>
+              <p class="note-hint">• UPC 12자리로 시작하는 행을 자동 파싱합니다</p>
+              <div style="margin-top:8px">
+                <button class="btn btn-secondary" onclick="parseReport()">🔍 파싱 미리보기</button>
+              </div>
+            </div>
+          </details>
+
+          <div style="margin-top:12px">
+            <button class="btn btn-secondary" onclick="clearAll()">🗑 초기화</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 직접 입력 카드 -->
+      <div class="card">
+        <div class="card-head">✏️ 직접 입력</div>
+        <div class="card-body">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <input id="manualUpc" class="date-input" style="flex:1;min-width:140px" placeholder="UPC 바코드 12자리" maxlength="12">
+            <input id="manualQty" class="date-input" style="width:80px" type="number" min="1" placeholder="수량">
+            <input id="manualAmt" class="date-input" style="width:90px" type="number" min="0" step="0.01" placeholder="$금액">
+            <button class="btn btn-secondary" onclick="addManualRow()">추가</button>
+          </div>
+          <div id="manualList" style="font-size:12px;color:var(--fg3)">추가된 항목이 없습니다</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽: 미리보기 & 결과 -->
+    <div>
+      <!-- 미리보기 -->
+      <div class="card" id="previewCard" style="margin-bottom:16px">
+        <div class="card-head">
+          👁 미리보기
+          <span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--fg2)" id="previewCount"></span>
+        </div>
+        <div class="chip-row" id="chipRow" style="padding:12px 18px 0;display:none">
+          <div class="chip accent"><strong id="chipTotal">0</strong>전체</div>
+          <div class="chip green"><strong id="chipMatched">0</strong>매칭</div>
+          <div class="chip red"><strong id="chipUnmatched">0</strong>미매칭</div>
+          <div class="chip"><strong id="chipQty">0</strong>총 판매 수량</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>UPC</th>
+                <th>제품명</th>
+                <th style="text-align:center">판매수량</th>
+                <th style="text-align:right">금액</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="previewBody">
+              <tr><td colspan="5" class="empty">파싱 또는 직접 입력 후 미리보기를 확인하세요</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:8px">
+          <button class="btn btn-primary" id="submitBtn" onclick="submitSales()" disabled>✅ 재고 차감 확정</button>
+        </div>
+      </div>
+
+      <!-- 결과 -->
+      <div class="card result-panel" id="resultPanel">
+        <div class="card-head" style="color:var(--green)">✅ 처리 완료</div>
+        <div id="resultSummary" style="padding:12px 18px;font-size:13px;color:var(--fg2)"></div>
+        <div style="overflow-x:auto">
+          <table class="preview-table">
+            <thead><tr><th>제품명</th><th style="text-align:center">차감</th><th style="text-align:right">재고 변화</th><th></th></tr></thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 일자별 판매 이력 & 월 차트 -->
+  <div class="card" style="margin-top:24px">
+    <div class="card-head" style="justify-content:space-between">
+      <span>📅 일자별 판매 이력</span>
+      <span style="font-size:12px;font-weight:400;color:var(--fg2)" id="historySubtitle">로딩 중…</span>
+    </div>
+    <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>판매일</th>
+            <th style="text-align:center">품목</th>
+            <th style="text-align:center">수량</th>
+            <th style="text-align:right">매출</th>
+            <th style="width:28px"></th>
+          </tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr><td colspan="5" class="empty">데이터 로딩 중…</td></tr>
+        </tbody>
+        <tfoot id="historyFoot" style="display:none">
+          <tr>
+            <td>합계</td>
+            <td style="text-align:center" id="footItems">—</td>
+            <td style="text-align:center" id="footQty">—</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace" id="footRevenue">—</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+const bc = new BroadcastChannel('inventory-update');
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let previewItems = [];   // {upc, name, qty, amount}
+let manualItems  = [];
+let inventory    = [];
+
+// ── Tab switch ─────────────────────────────────────────
+function switchTab(name) {
+  const tabNames = ['pdf','image','paste'];
+  document.querySelectorAll('.input-tab').forEach((t,i) => {
+    t.classList.toggle('active', tabNames[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+}
+
+// ── 통합 Drag & drop ───────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  handleAnyFile(e.dataTransfer.files[0]);
+});
+
+function handleAnyFile(file) {
+  if (!file) return;
+  if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
+    handlePdfFile(file);
+  } else if (file.type.startsWith('image/')) {
+    handleImageFile(file);
+  } else {
+    showToast('PDF 또는 이미지 파일만 지원합니다', 'error');
+  }
+}
+
+// ── Image pre-processing (2x upscale + contrast) ──────
+function preprocessForOcr(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width  = img.width  * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // 대비 강화: 임계값 기준 흑백
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+        const v = lum < 160 ? 0 : 255;  // threshold 160
+        d[i] = d[i+1] = d[i+2] = v;
+      }
+      ctx.putImageData(imgData, 0, 0);
+      URL.revokeObjectURL(url);
+      resolve(canvas);
+    };
+    img.src = url;
+  });
+}
+
+// ── OCR — 백엔드 Windows OCR API ─────────────────────
+async function handleImageFile(file) {
+  if (!file) return;
+  const status = document.getElementById('uploadStatus');
+  const bar    = document.getElementById('ocrBar');
+  const prog   = document.getElementById('ocrProgress');
+  const label  = document.getElementById('dropLabel');
+
+  status.textContent = '🔍 서버 OCR 처리 중…';
+  prog.style.display = 'block';
+  bar.style.width = '30%';
+  dropZone.classList.remove('loaded');
+
+  try {
+    const form = new FormData();
+    form.append('file', file);
+
+    const res = await fetch(`${API_BASE}/api/ocr/image`, { method: 'POST', body: form });
+    bar.style.width = '90%';
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+
+    const data = await res.json();
+    bar.style.width = '100%';
+    setTimeout(() => { prog.style.display = 'none'; }, 400);
+
+    // 백엔드 OCR 결과 vs 프론트엔드 텍스트 파서 — 더 많은 쪽 사용
+    const ocrItems    = data.items.map(i => ({ upc: i.upc, name: i.name, qty: i.qty, amount: i.amount, cost2: 0 }));
+    const textItems   = parseGtiText(data.raw_text);
+    const bestItems   = textItems.length > ocrItems.length ? textItems : ocrItems;
+
+    if (!bestItems.length) {
+      // OCR 원문을 텍스트 탭에 복사하고 그 탭에서 직접 수정/재파싱 가능하게
+      document.getElementById('pasteArea').value = data.raw_text;
+      status.textContent = '⚠️ 자동 인식 실패 — OCR 원문을 텍스트 탭에 복사했습니다. 텍스트 탭에서 확인하세요';
+      showToast('자동 인식 실패 — 텍스트 탭 확인', 'error');
+      return;
+    }
+
+    previewItems = bestItems;
+    renderPreview();
+    dropZone.classList.add('loaded');
+    label.textContent = `✅ ${file.name} (${bestItems.length}개 항목 인식)`;
+    status.textContent = `${bestItems.length}개 항목 파싱 완료`;
+    showToast(`${bestItems.length}개 항목 파싱 완료`, 'success');
+
+    // 날짜 자동 감지
+    const dm = data.raw_text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dm) {
+      const [, mo, d, y] = dm;
+      document.getElementById('saleDate').value =
+        `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+  } catch (err) {
+    prog.style.display = 'none';
+    status.textContent = '❌ OCR 실패: ' + err.message;
+    showToast('OCR 오류', 'error');
+  }
+}
+
+// ── PDF parser ─────────────────────────────────────────
+async function handlePdfFile(file) {
+  if (!file) return;
+  const status = document.getElementById('uploadStatus');
+  const label  = document.getElementById('dropLabel');
+  status.textContent = '📄 PDF 렌더링 중…';
+  dropZone.classList.remove('loaded');
+
+  try {
+    // PDF.js로 각 페이지를 고해상도 canvas에 렌더링 → PNG blob → 백엔드 OCR
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+
+    let allRows = [];
+    let fullRawText = '';
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      status.textContent = `📄 페이지 ${pageNum}/${pdf.numPages} OCR 처리 중…`;
+      const page    = await pdf.getPage(pageNum);
+      const vp      = page.getViewport({ scale: 2.5 }); // 고해상도 (약 1800×2300px)
+      const canvas  = document.createElement('canvas');
+      canvas.width  = vp.width;
+      canvas.height = vp.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+      // canvas → PNG blob → FormData → OCR 엔드포인트
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const form = new FormData();
+      form.append('file', new File([blob], `page${pageNum}.png`, { type: 'image/png' }));
+      const resp = await fetch(`${API_BASE}/api/ocr/image?include_zero=true`, { method: 'POST', body: form });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+
+      const pageText = data.raw_text || '';
+      fullRawText += pageText + '\n';
+
+      // 텍스트 파서 우선, 실패시 OCR items
+      const textRows = parseGtiText(pageText);
+      if (textRows.length > 0) {
+        allRows = allRows.concat(textRows);
+      } else if (data.items && data.items.length) {
+        allRows = allRows.concat(data.items.map(i => ({ upc: i.upc, name: i.name, qty: i.qty, amount: i.amount, cost2: 0 })));
+      }
+      console.log(`[PDF page ${pageNum}] OCR items: ${data.matched}, parseGtiText: ${textRows.length}`);
+    }
+
+    if (!allRows.length) {
+      status.textContent = '⚠️ 파싱된 항목 없음 — 텍스트 붙여넣기 탭을 사용해보세요';
+      showToast('항목을 찾지 못했습니다', 'error');
+      return;
+    }
+
+    previewItems = allRows;
+    renderPreview();
+    autoSaveCosts(allRows);
+    dropZone.classList.add('loaded');
+    label.textContent = `✅ ${file.name} (${allRows.length}개 항목 인식)`;
+    status.textContent = `${allRows.length}개 항목 파싱 완료 · 오른쪽 미리보기 확인 후 확정하세요`;
+    showToast(`${allRows.length}개 항목 파싱 완료`, 'success');
+
+    // 판매일 자동 감지 (리포트 날짜)
+    const dateMatch = fullRawText.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dateMatch) {
+      const [, m, d, y] = dateMatch;
+      document.getElementById('saleDate').value =
+        `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+  } catch (err) {
+    status.textContent = '❌ PDF 읽기 실패: ' + err.message;
+    showToast('PDF 읽기 실패', 'error');
+  }
+}
+
+// ── Init ───────────────────────────────────────────────
+async function init() {
+  const dot = document.getElementById('connDot');
+  // 전일로 날짜 설정
+  setYesterday();
+  try {
+    inventory = await fetch(`${API_BASE}/api/products?limit=500`).then(r => r.json());
+    dot.textContent = '● 서버 연결됨';
+    dot.style.color = 'var(--green)';
+  } catch {
+    dot.textContent = '● 서버 오프라인';
+    dot.style.color = 'var(--red)';
+  }
+  loadSalesHistory();
+}
+
+function setYesterday() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  document.getElementById('saleDate').value = d.toISOString().slice(0, 10);
+}
+
+// ── GTI Report Parser ──────────────────────────────────
+// Format: "048415000307 - J.P Wiser's Deluxe 750    1    $37.51    $25.87    $11.64    31.02%"
+// 두번째 금액(cost2)은 원가로 사용
+function parseGtiText(text) {
+  const rows = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // UPC 추출 (10~13자리, " - " 또는 탭 구분)
+    const dashMatch = line.match(/^(\d{10,13})\s*-\s*(.+)/);
+    const tabMatch  = line.match(/^(\d{10,13})\t(.+)/);
+    const m = dashMatch || tabMatch;
+    if (!m) { i++; continue; }
+
+    let upc = m[1];
+    if (upc.length === 11) upc = '0' + upc;
+    if (upc.length === 10) upc = '00' + upc;
+
+    const nameAndRest = m[2].replace(/\t/g, ' ').trim();
+
+    // ── 케이스 A: 한 줄에 이름+수량+금액 모두 있음 ──
+    const inline =
+      nameAndRest.match(/^(.+?)\s{2,}(\d{1,4})\s+\$?([\d.]+)(?:\s+\$?([\d.]+))?/) ||
+      nameAndRest.match(/^(.+?)\s+(\d{1,4})\s+\$([\d.]+)(?:\s+\$?([\d.]+))?/);
+
+    if (inline) {
+      const qty = parseInt(inline[2]);
+      if (qty > 0 && qty <= 9999) {
+        rows.push({
+          upc,
+          name:   inline[1].trim(),
+          qty,
+          amount: parseFloat(inline[3]) || 0,
+          cost2:  parseFloat(inline[4]) || 0,
+        });
+      }
+      i++;
+      continue;
+    }
+
+    // ── 케이스 B: 멀티라인 — 이름만 있고 수량/금액은 다음 줄 ──
+    // 다음 줄이 순수 숫자(qty)인지 확인
+    // ── 케이스 B-1: 탭 구분 — name\tqty\t$amount\t$cost (한 줄) ──
+    const rawRest = m[2].trim();
+    const tabCols = rawRest.split('\t').map(s => s.trim());
+    if (tabCols.length >= 2 && /^\d{1,4}$/.test(tabCols[1])) {
+      const qty = parseInt(tabCols[1]);
+      if (qty > 0 && qty <= 9999) {
+        rows.push({
+          upc,
+          name:   tabCols[0],
+          qty,
+          amount: parseFloat((tabCols[2] || '').replace('$','')) || 0,
+          cost2:  parseFloat((tabCols[3] || '').replace('$','')) || 0,
+        });
+      }
+      i++;
+      continue;
+    }
+
+    // ── 케이스 B-2: 멀티라인 — 다음 줄이 수량 ──
+    const name = nameAndRest;
+    i++;
+    if (i >= lines.length) continue;
+
+    const qtyLine = lines[i];
+    if (!/^\d{1,4}$/.test(qtyLine)) continue;
+    const qty = parseInt(qtyLine);
+    if (qty <= 0 || qty > 9999) { i++; continue; }
+    i++;
+
+    let amount = 0, cost2 = 0;
+    if (i < lines.length) {
+      const amtM = lines[i].match(/^\$?([\d.]+)$/);
+      if (amtM) { amount = parseFloat(amtM[1]) || 0; i++; }
+      else if (lines[i] === '—' || lines[i] === '-') i++;
+    }
+    if (i < lines.length) {
+      const costM = lines[i].match(/^\$?([\d.]+)$/);
+      if (costM) { cost2 = parseFloat(costM[1]) || 0; i++; }
+    }
+
+    rows.push({ upc, name, qty, amount, cost2 });
+  }
+  return rows;
+}
+
+// ── 원가 자동 저장 (파일의 두번째 금액 → 원가 없는 제품에 적용) ─
+async function autoSaveCosts(items) {
+  const toUpdate = [];
+  for (const item of items) {
+    if (!item.cost2 || item.cost2 <= 0) continue;
+    const product = inventory.find(p => p.barcode === item.upc);
+    if (!product) continue;
+    if (product.cost && product.cost > 0) continue;
+    toUpdate.push({ id: product.id, name: product.name, cost: item.cost2 });
+  }
+  if (!toUpdate.length) return;
+  let saved = 0;
+  for (const p of toUpdate) {
+    try {
+      const r = await fetch(`${API_BASE}/api/products/${p.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cost: p.cost }),
+      });
+      if (r.ok) {
+        const cached = inventory.find(inv => inv.id === p.id);
+        if (cached) cached.cost = p.cost;
+        saved++;
+      }
+    } catch {}
+  }
+  if (saved > 0) showToast(`원가 ${saved}개 자동 저장됨 (판매가 관리에서 확인)`, 'success');
+}
+
+function parseReport() {
+  const text = document.getElementById('pasteArea').value.trim();
+  if (!text) { showToast('붙여넣을 내용이 없습니다', 'error'); return; }
+
+  const rows = parseGtiText(text);
+
+  if (!rows.length) {
+    showToast('파싱된 항목이 없습니다. 형식을 확인해주세요', 'error');
+    return;
+  }
+
+  previewItems = rows;
+  renderPreview();
+  autoSaveCosts(rows);
+  showToast(`${rows.length}개 항목 파싱 완료`, 'success');
+}
+
+// ── Manual input ───────────────────────────────────────
+function addManualRow() {
+  const upc = document.getElementById('manualUpc').value.trim();
+  const qty = parseInt(document.getElementById('manualQty').value) || 0;
+  const amt = parseFloat(document.getElementById('manualAmt').value) || 0;
+  if (!upc || qty <= 0) { showToast('UPC와 수량을 입력하세요', 'error'); return; }
+
+  const product = inventory.find(p => p.barcode === upc);
+  manualItems.push({ upc, name: product?.name || '직접입력', qty, amount: amt });
+
+  document.getElementById('manualUpc').value = '';
+  document.getElementById('manualQty').value = '';
+  document.getElementById('manualAmt').value = '';
+  document.getElementById('manualUpc').focus();
+
+  // merge into preview
+  previewItems = [...manualItems];
+  renderPreview();
+  showToast('추가됐습니다');
+}
+
+// Allow Enter in manual inputs
+document.getElementById('manualQty').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addManualRow();
+});
+
+// ── Preview render ─────────────────────────────────────
+function renderPreview() {
+  const tbody = document.getElementById('previewBody');
+  const allItems = [...previewItems]; // already merged with manual
+
+  if (!allItems.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">항목 없음</td></tr>';
+    document.getElementById('chipRow').style.display = 'none';
+    document.getElementById('submitBtn').disabled = true;
+    return;
+  }
+
+  let matched = 0, totalQty = 0;
+  tbody.innerHTML = allItems.map((item, idx) => {
+    const product = inventory.find(p => p.barcode === item.upc);
+    const isMatch = !!product;
+    if (isMatch) matched++;
+    totalQty += item.qty;
+    const stockInfo = product ? `현재 ${product.stock}개` : '미등록';
+    return `
+    <tr class="${isMatch ? '' : 'unmatched'}">
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px">${item.upc}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${item.name}">
+        ${isMatch ? product.name : `<span style="color:var(--red)">${item.name}</span>`}
+      </td>
+      <td style="text-align:center">
+        <input class="qty-input" type="number" min="1" value="${item.qty}"
+          onchange="previewItems[${idx}].qty = +this.value; updateChips()">
+      </td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">
+        ${item.amount > 0 ? '$' + item.amount.toFixed(2) : '—'}
+      </td>
+      <td>
+        <span style="font-size:11px;color:${isMatch?'var(--green)':'var(--fg2)'}">
+          ${isMatch ? stockInfo : '🆕 신규등록'}
+        </span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('chipRow').style.display = 'flex';
+  document.getElementById('chipTotal').textContent = allItems.length;
+  document.getElementById('chipMatched').textContent = matched;
+  document.getElementById('chipUnmatched').textContent = allItems.length - matched;
+  document.getElementById('chipQty').textContent = totalQty;
+  document.getElementById('previewCount').textContent = `${allItems.length}개 항목`;
+  document.getElementById('submitBtn').disabled = allItems.length === 0;
+}
+
+function updateChips() {
+  const matched = previewItems.filter(i => inventory.find(p => p.barcode === i.upc)).length;
+  const totalQty = previewItems.reduce((s, i) => s + i.qty, 0);
+  document.getElementById('chipMatched').textContent = matched;
+  document.getElementById('chipQty').textContent = totalQty;
+  document.getElementById('submitBtn').disabled = previewItems.length === 0;
+}
+
+// ── Submit ─────────────────────────────────────────────
+async function submitSales() {
+  const saleDate = document.getElementById('saleDate').value;
+  if (!saleDate) { showToast('판매일을 선택하세요', 'error'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 처리 중…';
+
+  const items = previewItems
+    .map(i => ({ barcode: i.upc, name: i.name, qty_sold: i.qty, sale_amount: i.amount }));
+
+  try {
+    const res = await fetch(`${API_BASE}/api/stock/sales`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sale_date: saleDate, items })
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || `오류 ${res.status}`);
+    }
+    const result = await res.json();
+
+    // 대시보드에 갱신 알림
+    bc.postMessage('sales-updated');
+    loadSalesHistory();
+
+    // 결과 표시
+    showResult(result, saleDate);
+    const created = result.items.filter(i => i.created).length;
+    const msg = created > 0
+      ? `✅ ${result.matched}개 품목 재고 차감 완료 (신규등록 ${created}개)`
+      : `✅ ${result.matched}개 품목 재고 차감 완료`;
+    showToast(msg, 'success');
+
+    // 인벤토리 갱신
+    inventory = await fetch(`${API_BASE}/api/products?limit=500`).then(r => r.json());
+
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '✅ 재고 차감 확정';
+  }
+}
+
+function showResult(result, saleDate) {
+  const panel = document.getElementById('resultPanel');
+  panel.classList.add('show');
+  const createdCount = result.items.filter(i => i.created).length;
+  const summaryExtra = createdCount > 0 ? ` · 신규등록 ${createdCount}개` : '';
+  document.getElementById('resultSummary').textContent =
+    `${saleDate} · ${result.matched}개 품목 · 총 ${result.items.reduce((s,i)=>s+i.qty_sold,0)}개 차감${summaryExtra}`;
+
+  document.getElementById('resultBody').innerHTML = result.items.map(item => {
+    let badge = '';
+    if (item.created)       badge = '<span style="margin-left:6px;font-size:10px;background:var(--accent);color:#fff;border-radius:4px;padding:1px 5px;vertical-align:middle">신규등록</span>';
+    else if (!item.matched) badge = '<span style="margin-left:6px;font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;vertical-align:middle">미매칭</span>';
+    return `
+    <tr>
+      <td style="font-weight:500">${item.name}${badge}</td>
+      <td style="text-align:center;color:var(--red);font-weight:700">-${item.qty_sold}</td>
+      <td style="text-align:right"><span class="stock-change">${item.stock_before} → ${item.stock_after}</span></td>
+      <td><span style="font-size:11px;color:${item.matched?'var(--green)':'var(--red)'}">${item.matched?'✅':'❌'}</span></td>
+    </tr>`;
+  }).join('');
+
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('submitBtn').textContent = '✅ 재고 차감 확정';
+}
+
+function clearAll() {
+  previewItems = []; manualItems = [];
+  document.getElementById('pasteArea').value = '';
+  document.getElementById('previewBody').innerHTML = '<tr><td colspan="5" class="empty">파싱 또는 직접 입력 후 미리보기를 확인하세요</td></tr>';
+  document.getElementById('chipRow').style.display = 'none';
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('resultPanel').classList.remove('show');
+  document.getElementById('manualList').textContent = '추가된 항목이 없습니다';
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => { t.className = ''; }, 2500);
+}
+
+// ── Sales History ──────────────────────────────────────
+let activeDetailDate = null;
+let _barcodeMap = {};  // product_id → barcode
+let _deletingItem = false;
+
+async function loadSalesHistory() {
+  try {
+    const [data, products] = await Promise.all([
+      fetch(`${API_BASE}/api/stock/sales?limit=2000`).then(r => r.json()),
+      fetch(`${API_BASE}/api/products?limit=2000`).then(r => r.json()),
+    ]);
+
+    _barcodeMap = {};
+    products.forEach(p => { _barcodeMap[p.id] = p.barcode || ''; });
+
+    // Group by order_no (= sale_date), fallback to created_at date
+    const byDate = {};
+    for (const m of data) {
+      const date = m.order_no || (m.created_at ? m.created_at.slice(0, 10) : '?');
+      if (!byDate[date]) byDate[date] = [];
+      byDate[date].push(m);
+    }
+
+    const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+    renderHistoryTable(dates, byDate);
+
+    document.getElementById('historySubtitle').textContent =
+      dates.length > 0 ? `총 ${dates.length}일 이력` : '데이터 없음';
+  } catch (err) {
+    document.getElementById('historyBody').innerHTML =
+      `<tr><td colspan="5" class="empty" style="color:var(--red)">로딩 실패: ${err.message}</td></tr>`;
+  }
+}
+
+function renderHistoryTable(dates, byDate) {
+  const tbody = document.getElementById('historyBody');
+  const tfoot = document.getElementById('historyFoot');
+
+  if (!dates.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">판매 이력이 없습니다</td></tr>';
+    tfoot.style.display = 'none';
+    return;
+  }
+
+  let grandItems = 0, grandQty = 0, grandRev = 0;
+
+  tbody.innerHTML = dates.map(date => {
+    const items = byDate[date];
+    const totalQty = items.reduce((s, m) => s + m.quantity, 0);
+    const totalRev = items.reduce((s, m) => s + m.quantity * (m.unit_cost || 0), 0);
+    grandItems += items.length;
+    grandQty += totalQty;
+    grandRev += totalRev;
+
+    const [y, mo, d] = date.split('-');
+    const dateLabel = `${mo}/${d}`;
+
+    return `
+    <tr id="hrow-${date}" class="history-date-row" onclick="toggleDayDetail('${date}')">
+      <td>
+        <strong>${dateLabel}</strong>
+        <span style="margin-left:5px;font-size:11px;color:var(--fg3)">${y}</span>
+      </td>
+      <td style="text-align:center">${items.length}</td>
+      <td style="text-align:center">${totalQty}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">
+        $${totalRev.toFixed(2)}
+      </td>
+      <td style="text-align:center;white-space:nowrap" id="hrow-arrow-${date}">
+        <button onclick="event.stopPropagation();deleteDateHistory('${date}')"
+          title="${dateLabel} 전체 삭제"
+          style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:13px;padding:2px 5px;border-radius:4px;vertical-align:middle"
+          onmouseover="this.style.color='var(--red)';this.style.background='var(--red-bg)'"
+          onmouseout="this.style.color='var(--fg3)';this.style.background='none'">🗑</button>
+        <span id="hrow-arrowspan-${date}" style="font-size:11px;color:var(--fg3);vertical-align:middle">▶</span>
+      </td>
+    </tr>
+    <tr id="hdetail-${date}" class="detail-row" style="display:none">
+      <td colspan="5">
+        <div class="detail-inner">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th style="font-family:'IBM Plex Mono',monospace;font-size:11px">바코드</th>
+                <th>제품명</th>
+                <th style="text-align:center">수량</th>
+                <th style="text-align:right">단가</th>
+                <th style="text-align:right">소계</th>
+                <th style="width:28px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(m => {
+                const bc = _barcodeMap[m.product_id] || '';
+                const bcLink = bc
+                  ? `<a href="/prices.html?barcode=${bc}" title="판매가 관리에서 보기"
+                       style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);text-decoration:none;cursor:pointer"
+                       onclick="event.stopPropagation()">${bc}</a>`
+                  : `<span style="color:var(--fg3)">—</span>`;
+                return `
+                <tr>
+                  <td style="white-space:nowrap">${bcLink}</td>
+                  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${m.product_name||''}">${m.product_name || '—'}</td>
+                  <td style="text-align:center;cursor:pointer" id="hqty-${m.id}"
+                      onclick="event.stopPropagation();editHistoryQty(${m.id},${m.quantity},'${date}')"
+                      title="클릭하여 수량 수정">${m.quantity}</td>
+                  <td style="text-align:right;font-family:'IBM Plex Mono',monospace">$${(m.unit_cost||0).toFixed(2)}</td>
+                  <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600" id="hamt-${m.id}">$${(m.quantity*(m.unit_cost||0)).toFixed(2)}</td>
+                  <td style="text-align:center;padding:4px 6px">
+                    <button onclick="event.stopPropagation();deleteHistoryItem(${m.id},'${date}')"
+                      title="이 항목 삭제"
+                      style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:14px;padding:2px 4px;border-radius:4px;line-height:1"
+                      onmouseover="this.style.color='var(--red)';this.style.background='var(--red-bg)'"
+                      onmouseout="this.style.color='var(--fg3)';this.style.background='none'">✕</button>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>합계</td>
+                <td></td>
+                <td style="text-align:center" id="hfoot-qty-${date}">${totalQty}</td>
+                <td></td>
+                <td style="text-align:right;font-family:'IBM Plex Mono',monospace" id="hfoot-rev-${date}">$${totalRev.toFixed(2)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Update footer totals
+  document.getElementById('footItems').textContent = grandItems;
+  document.getElementById('footQty').textContent = grandQty;
+  document.getElementById('footRevenue').textContent = `$${grandRev.toFixed(2)}`;
+  tfoot.style.display = '';
+}
+
+async function editHistoryQty(movId, currentQty, date) {
+  const cell = document.getElementById(`hqty-${movId}`);
+  if (!cell || cell.querySelector('input')) return;
+
+  const orig = cell.textContent;
+  cell.innerHTML = `<input type="number" min="1" value="${currentQty}"
+    style="width:48px;text-align:center;border:1px solid var(--accent);border-radius:4px;padding:1px 4px;font-size:12px"
+    onclick="event.stopPropagation()"
+    onkeydown="event.stopPropagation()">`;
+  const inp = cell.querySelector('input');
+  inp.focus(); inp.select();
+
+  const save = async () => {
+    const qty = parseInt(inp.value);
+    if (!qty || qty < 1) { cell.textContent = orig; return; }
+    if (qty === currentQty) { cell.textContent = orig; return; }
+    try {
+      const r = await fetch(`${API_BASE}/api/stock/movements/${movId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: qty }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      cell.textContent = qty;
+      // 소계 업데이트
+      const amtCell = document.getElementById(`hamt-${movId}`);
+      const unitCost = parseFloat(amtCell?.textContent?.replace('$','')) / currentQty || 0;
+      if (amtCell) amtCell.textContent = `$${(qty * unitCost).toFixed(2)}`;
+      showToast('수량 수정됨', 'success');
+      await loadSalesHistory();
+      // 같은 날짜 상세 행 다시 열기
+      const detailRow = document.getElementById(`hdetail-${date}`);
+      if (detailRow) {
+        detailRow.style.display = '';
+        _setArrow(date, '▼');
+        const headerRow = document.getElementById(`hrow-${date}`);
+        if (headerRow) headerRow.classList.add('open');
+        activeDetailDate = date;
+      }
+    } catch(e) {
+      cell.textContent = orig;
+      showToast('수정 실패: ' + e.message, 'error');
+    }
+  };
+
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') save();
+    if (e.key === 'Escape') cell.textContent = orig;
+  });
+  inp.addEventListener('blur', () => { if (cell.querySelector('input')) cell.textContent = orig; });
+}
+
+async function deleteHistoryItem(movId, date) {
+  if (_deletingItem) return;
+  if (!confirm('이 판매 항목을 삭제하시겠습니까?')) return;
+  _deletingItem = true;
+  try {
+    const r = await fetch(`${API_BASE}/api/stock/movements/${movId}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(await r.text());
+    showToast('항목 삭제됨', 'success');
+    await loadSalesHistory();
+    const detailRow = document.getElementById(`hdetail-${date}`);
+    if (detailRow) {
+      detailRow.style.display = '';
+      _setArrow(date, '▼');
+      const headerRow = document.getElementById(`hrow-${date}`);
+      if (headerRow) headerRow.classList.add('open');
+      activeDetailDate = date;
+    }
+  } catch(e) {
+    showToast('삭제 실패: ' + e.message, 'error');
+  } finally {
+    _deletingItem = false;
+  }
+}
+
+async function deleteDateHistory(date) {
+  const [y, mo, d] = date.split('-');
+  if (!confirm(`${mo}/${d} 판매 이력 전체를 삭제하시겠습니까?`)) return;
+  try {
+    const r = await fetch(`${API_BASE}/api/stock/sales/${date}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(await r.text());
+    const res = await r.json();
+    showToast(`${mo}/${d} ${res.deleted}건 삭제됨`, 'success');
+    activeDetailDate = null;
+    await loadSalesHistory();
+  } catch(e) {
+    showToast('삭제 실패: ' + e.message, 'error');
+  }
+}
+
+function _setArrow(date, ch) {
+  const s = document.getElementById(`hrow-arrowspan-${date}`);
+  if (s) s.textContent = ch;
+}
+
+function toggleDayDetail(date) {
+  const detailRow = document.getElementById(`hdetail-${date}`);
+  const headerRow = document.getElementById(`hrow-${date}`);
+  if (!detailRow) return;
+
+  const isOpen = detailRow.style.display !== 'none';
+
+  if (activeDetailDate && activeDetailDate !== date) {
+    const prev    = document.getElementById(`hdetail-${activeDetailDate}`);
+    const prevRow = document.getElementById(`hrow-${activeDetailDate}`);
+    if (prev)    prev.style.display = 'none';
+    _setArrow(activeDetailDate, '▶');
+    if (prevRow) prevRow.classList.remove('active-row');
+    activeDetailDate = null;
+  }
+
+  if (isOpen) {
+    detailRow.style.display = 'none';
+    _setArrow(date, '▶');
+    headerRow.classList.remove('active-row');
+    activeDetailDate = null;
+  } else {
+    detailRow.style.display = 'table-row';
+    _setArrow(date, '▼');
+    headerRow.classList.add('active-row');
+    activeDetailDate = date;
+  }
+}
+
+init();
+</script>

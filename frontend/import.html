@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<title>발주 파일 입고 처리</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --bg:       #f0f2f5;
+  --surface:  #ffffff;
+  --surface2: #f7f8fa;
+  --border:   #e4e7ec;
+  --fg:       #111827;
+  --fg2:      #6b7280;
+  --fg3:      #9ca3af;
+  --accent:   #2563eb;
+  --accent-h: #1d4ed8;
+  --accent-bg:#eff6ff;
+  --green:    #16a34a;
+  --green-bg: #f0fdf4;
+  --yellow:   #d97706;
+  --yellow-bg:#fffbeb;
+  --red:      #dc2626;
+  --red-bg:   #fef2f2;
+  --purple:   #7c3aed;
+  --purple-bg:#f5f3ff;
+  --orange:   #ea580c;
+  --orange-bg:#fff7ed;
+  --shadow:   0 1px 3px rgba(0,0,0,.08);
+  --radius:   8px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+    --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+    --accent:#3b82f6; --accent-h:#2563eb; --accent-bg:#1e2a4a;
+    --green:#4ade80; --green-bg:#0a2010; --yellow:#fbbf24; --yellow-bg:#1f1600;
+    --red:#f87171; --red-bg:#2a0808; --purple:#a78bfa; --purple-bg:#1a1040;
+    --orange:#fb923c; --orange-bg:#1f0d00;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+  --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+  --accent:#3b82f6; --accent-h:#2563eb; --accent-bg:#1e2a4a;
+  --green:#4ade80; --green-bg:#0a2010; --yellow:#fbbf24; --yellow-bg:#1f1600;
+  --red:#f87171; --red-bg:#2a0808; --purple:#a78bfa; --purple-bg:#1a1040;
+  --orange:#fb923c; --orange-bg:#1f0d00;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--fg);
+  padding-left: max(16px, env(safe-area-inset-left,0px));
+  padding-right: max(16px, env(safe-area-inset-right,0px));
+  padding-block: 24px;
+  min-height: 100vh;
+}
+
+.page-header { margin-bottom: 20px; }
+.page-header h1 { font-size: 20px; font-weight: 700; }
+.page-header p  { font-size: 13px; color: var(--fg2); margin-top: 3px; }
+
+/* ── Drop zone ── */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  position: relative;
+  margin-bottom: 20px;
+}
+.drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.drop-icon { font-size: 42px; margin-bottom: 10px; }
+.drop-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.drop-sub   { font-size: 13px; color: var(--fg2); margin-bottom: 16px; }
+.drop-badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.supplier-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid;
+}
+.badge-connect { background: var(--blue-bg, #eff6ff);  color: var(--accent);  border-color: var(--accent); }
+.badge-bdl     { background: var(--orange-bg);         color: var(--orange);  border-color: var(--orange); }
+.badge-sleeman { background: var(--green-bg);           color: var(--green);   border-color: var(--green); }
+.drop-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+
+/* ── Progress / status ── */
+.status-bar {
+  display: none; align-items: center; gap: 10px; padding: 12px 16px;
+  background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 8px;
+  margin-bottom: 16px; font-size: 13px; color: var(--accent);
+}
+.status-bar.show { display: flex; }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Result card ── */
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: none;
+}
+.result-card.show { display: block; }
+
+.result-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.result-header h2 { font-size: 15px; font-weight: 600; }
+.result-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+.meta-item { font-size: 12px; color: var(--fg2); display: flex; gap: 4px; }
+.meta-item strong { color: var(--fg); font-weight: 600; }
+
+/* ── Table ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 780px; }
+thead th {
+  background: var(--surface2); padding: 9px 12px; text-align: left;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--fg2); border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+thead th:last-child { text-align: right; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .08s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+tbody td { padding: 9px 12px; vertical-align: middle; }
+
+/* ── Qty editor ── */
+.qty-wrap { display: flex; align-items: center; gap: 4px; }
+.qty-wrap button {
+  width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--fg); font-size: 14px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+  line-height: 1;
+}
+.qty-wrap button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.qty-input {
+  width: 48px; text-align: center; padding: 3px 4px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--surface); color: var(--fg); font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px; font-weight: 600;
+}
+.qty-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* ── Supplier tag ── */
+.sup-tag {
+  display: inline-block; padding: 2px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; border: 1px solid;
+}
+.sup-connect { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+.sup-bdl     { background: var(--orange-bg); color: var(--orange); border-color: var(--orange); }
+.sup-sleeman { background: var(--green-bg);  color: var(--green);  border-color: var(--green); }
+
+/* ── Skip toggle ── */
+.skip-row { opacity: .4; }
+.skip-btn {
+  padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--fg2); font-size: 11px; cursor: pointer;
+}
+.skip-btn:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+.skip-row .skip-btn { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+
+/* ── Footer actions ── */
+.result-footer {
+  padding: 14px 18px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.summary-text { font-size: 13px; color: var(--fg2); flex: 1; }
+.summary-text strong { color: var(--fg); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 8px 16px; border-radius: 6px; border: none;
+  font-size: 13px; font-weight: 500; font-family: inherit;
+  cursor: pointer; transition: background .1s;
+}
+.btn-primary   { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-secondary { background: var(--surface2); color: var(--fg); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  pointer-events: none; opacity: 0; transition: opacity .2s; z-index: 100;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+.toast.success { background: var(--green); color: #fff; }
+.toast.error   { background: var(--red);   color: #fff; }
+
+/* ── Success overlay ── */
+.success-panel {
+  display: none; padding: 32px 24px; text-align: center;
+  background: var(--green-bg); border-top: 1px solid var(--green);
+}
+.success-panel.show { display: block; }
+.success-panel h3 { font-size: 18px; font-weight: 700; color: var(--green); margin-bottom: 8px; }
+.success-panel p  { color: var(--fg2); font-size: 13px; }
+
+.mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--fg2); }
+
+/* ── Match badges ── */
+.match-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  border: 1px solid; white-space: nowrap; max-width: 180px;
+}
+.match-badge span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-upc  { background: var(--green-bg);  color: var(--green);  border-color: var(--green); }
+.match-name { background: var(--yellow-bg); color: var(--yellow); border-color: var(--yellow); }
+.match-none   { background: var(--red-bg);    color: var(--red);    border-color: var(--red); }
+.match-linked { background: var(--purple-bg); color: var(--purple); border-color: var(--purple); }
+.match-legend { font-size: 11px; color: var(--fg2); padding: 6px 18px; background: var(--surface2);
+  border-bottom: 1px solid var(--border); display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.match-legend strong { color: var(--fg); }
+
+/* ── UPC input (for unmatched rows) ── */
+.upc-input-wrap { display: flex; align-items: center; gap: 4px; min-width: 200px; flex-wrap: wrap; }
+.upc-inp {
+  width: 108px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 11px; font-family: 'IBM Plex Mono', monospace; background: var(--surface);
+  color: var(--fg); flex-shrink: 0;
+}
+.upc-inp:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.link-btn {
+  padding: 3px 8px; border-radius: 4px; border: none;
+  background: var(--accent); color: #fff; font-size: 11px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.link-btn:hover { background: var(--accent-h); }
+.new-product-btn {
+  padding: 3px 8px; border-radius: 4px; border: 1px solid var(--green);
+  background: var(--green-bg); color: var(--green); font-size: 11px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.new-product-btn:hover { background: var(--green); color: #fff; }
+
+/* ── New Product Modal ── */
+.np-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300; padding: 20px;
+}
+.np-modal-backdrop[hidden] { display: none !important; }
+.np-modal {
+  background: var(--surface); border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  padding: 28px; width: 100%; max-width: 460px;
+}
+.np-modal-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.np-modal-sub { font-size: 12px; color: var(--fg2); margin-bottom: 20px; }
+.np-form-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.np-form-label { font-size: 12px; font-weight: 600; color: var(--fg2); }
+.np-form-input {
+  padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--fg); font-size: 14px; outline: none;
+  transition: border-color .15s;
+}
+.np-form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.np-form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.np-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+.np-btn-cancel { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--fg2); font-size: 13px; font-weight: 600; cursor: pointer; }
+.np-btn-confirm { padding: 8px 18px; border-radius: 8px; border: none; background: var(--green); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .1s; }
+.np-btn-confirm:hover { background: #15803d; }
+.np-btn-confirm:disabled { opacity: .5; cursor: not-allowed; }
+
+/* History */
+.history { margin-top: 20px; }
+.history h3 { font-size: 13px; font-weight: 600; color: var(--fg2); margin-bottom: 10px; }
+.hist-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 6px; font-size: 13px;
+  cursor: pointer; transition: border-color .12s, box-shadow .12s;
+}
+.hist-item:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.hist-sup  { font-weight: 600; }
+.hist-info { color: var(--fg2); font-size: 12px; }
+.hist-time { margin-left: auto; font-size: 11px; color: var(--fg3); }
+.hist-chevron { font-size: 12px; color: var(--fg3); flex-shrink: 0; }
+
+/* Detail drawer */
+.detail-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  z-index: 200; align-items: flex-end; justify-content: center;
+}
+.detail-overlay.show { display: flex; }
+.detail-drawer {
+  background: var(--surface); width: 100%; max-width: 900px;
+  max-height: 85vh; border-radius: 16px 16px 0 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.15);
+}
+.detail-top {
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+}
+.detail-top h2 { font-size: 15px; font-weight: 700; flex: 1; }
+.detail-meta { display: flex; gap: 10px; flex-wrap: wrap; }
+.detail-meta span { font-size: 12px; color: var(--fg2); }
+.detail-meta strong { color: var(--fg); }
+.detail-close {
+  width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface2); cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.detail-close:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+.detail-body { overflow-y: auto; flex: 1; }
+.detail-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.detail-table thead th {
+  background: var(--surface2); padding: 8px 12px; text-align: left;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--fg2); border-bottom: 1px solid var(--border); position: sticky; top: 0;
+}
+.detail-table thead th:last-child { text-align: right; }
+.detail-table tbody tr { border-bottom: 1px solid var(--border); }
+.detail-table tbody tr:last-child { border-bottom: none; }
+.detail-table tbody tr:hover { background: var(--surface2); }
+.detail-table tbody td { padding: 8px 12px; vertical-align: middle; }
+.edit-inp {
+  width: 72px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: var(--fg); font-size: 13px; text-align: right;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.edit-inp:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.edit-inp.changed { border-color: var(--yellow); background: var(--yellow-bg); }
+.detail-footer {
+  padding: 12px 20px; border-top: 1px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.detail-save-status { font-size: 12px; color: var(--fg2); flex: 1; }
+.save-indicator { display: none; color: var(--green); font-weight: 600; font-size: 12px; }
+
+/* ── Top nav ── */
+.topnav {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 max(20px, env(safe-area-inset-left,0px));
+  display: flex; align-items: center; gap: 16px;
+  height: 56px; position: sticky; top: 0; z-index: 10;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 700; color: var(--fg); text-decoration: none;
+}
+.nav-brand .store-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.nav-links { display: flex; gap: 2px; margin-left: 8px; }
+.nav-link {
+  padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  color: var(--fg2); text-decoration: none; transition: background .1s, color .1s;
+  display: flex; align-items: center; gap: 5px;
+}
+.nav-link:hover { background: var(--surface2); color: var(--fg); }
+.nav-link.active { background: var(--accent-bg); color: var(--accent); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+</style>
+
+<nav class="topnav">
+  <a class="nav-brand" href="/">
+    <div class="store-icon">🦌</div>
+    Little Red Deer Store
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="/">🏠 홈</a>
+    <a class="nav-link" href="/inventory.html">📦 재고 현황</a>
+    <a class="nav-link active" href="/import.html">📥 발주 입고</a>
+    <a class="nav-link" href="/sales.html">🛒 판매 입력</a>
+    <a class="nav-link" href="/prices.html">💰 판매가 관리</a>
+    <a class="nav-link" href="/bulk_import.html">📋 제품 일괄등록</a>
+  </div>
+  <div style="margin-left:auto">
+    <a href="https://claude.ai/artifact/BYeqrU4RGJhQ8BzPhePBjP" target="_blank"
+       style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-bg,#eff6ff);border:1px solid var(--accent,#2563eb);padding:4px 11px;border-radius:6px;text-decoration:none;white-space:nowrap">📋 운영 가이드</a>
+  </div>
+</nav>
+
+<div style="max-width: 1100px; margin: 0 auto;">
+<div class="page-header">
+  <h1>📥 발주 파일 입고 처리</h1>
+  <p>Connect · BDL · Sleeman 발주서를 드래그하거나 클릭하여 업로드 &nbsp;<span id="connStatus" style="font-size:12px;font-weight:600"></span></p>
+</div>
+
+<!-- Drop zone -->
+<div class="drop-zone" id="dropZone">
+  <input type="file" id="fileInput" accept=".pdf,.txt,.PDF,.TXT" multiple>
+  <div class="drop-icon">📄</div>
+  <div class="drop-title">파일을 여기에 드래그하거나 클릭하여 선택</div>
+  <div class="drop-sub">PDF 또는 TXT 파일 · 복수 파일 동시 가능</div>
+  <div class="drop-badges">
+    <span class="supplier-badge badge-connect">🔵 Connect (PDF)</span>
+    <span class="supplier-badge badge-bdl">🟠 BDL (PDF)</span>
+    <span class="supplier-badge badge-sleeman">🟢 Sleeman (TXT)</span>
+  </div>
+</div>
+
+<!-- Status -->
+<div class="status-bar" id="statusBar">
+  <div class="spinner"></div>
+  <span id="statusMsg">파일 분석 중…</span>
+</div>
+
+<!-- Result -->
+<div class="result-card" id="resultCard">
+  <div class="result-header">
+    <h2 id="resultTitle">파싱 결과</h2>
+    <div class="result-meta">
+      <div class="meta-item"><span>공급업체:</span><strong id="metaSupplier">—</strong></div>
+      <div class="meta-item"><span>주문번호:</span><strong id="metaOrderNo">—</strong></div>
+      <div class="meta-item"><span>주문일:</span><strong id="metaDate">—</strong></div>
+      <div class="meta-item"><span>입고일:</span><strong id="metaDelivery">—</strong></div>
+    </div>
+  </div>
+
+  <div class="match-legend" id="matchLegend" style="display:none">
+    재고 매칭: &nbsp;
+    <span class="match-badge match-upc"    style="font-size:11px">✅ 바코드 일치</span>
+    <span class="match-badge match-linked" style="font-size:11px">🔗 연결됨</span>
+    <span class="match-badge match-name"   style="font-size:11px">🔍 제품명 일치</span>
+    <span class="match-badge match-none"   style="font-size:11px">❌ 미등록 — UPC 직접 입력</span>
+    <strong id="matchStats" style="margin-left:auto"></strong>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>SKU / Item#</th>
+          <th>바코드 (UPC)</th>
+          <th>제품명</th>
+          <th>재고 매칭</th>
+          <th>공급사</th>
+          <th style="text-align:right">단가</th>
+          <th style="text-align:center">확인 수량</th>
+          <th style="text-align:right">합계</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="itemsTbody"></tbody>
+    </table>
+  </div>
+
+  <div class="success-panel" id="successPanel">
+    <h3>✅ 입고 처리 완료!</h3>
+    <p id="successMsg"></p>
+  </div>
+
+  <div class="result-footer" id="resultFooter">
+    <div class="summary-text" id="summaryText"></div>
+    <button class="btn btn-secondary" onclick="resetForm()">↩ 취소</button>
+    <button class="btn btn-primary" id="importBtn" onclick="confirmImport()">✅ 입고 확인</button>
+  </div>
+</div>
+
+<!-- Import history -->
+<div class="history" id="historyDiv" style="display:none">
+  <h3>오늘 처리된 입고</h3>
+  <div id="historyList"></div>
+</div>
+
+<!-- New Product Registration Modal -->
+<div class="np-modal-backdrop" id="npModal" hidden>
+  <div class="np-modal">
+    <div class="np-modal-title">➕ 신규 제품 등록</div>
+    <div class="np-modal-sub" id="npModalSub">발주서에서 인식된 미등록 제품을 새로 등록합니다.</div>
+    <div class="np-form-row">
+      <label class="np-form-label" for="npUpc">UPC 바코드 <span style="color:var(--fg3);font-weight:400">(없으면 비워두세요)</span></label>
+      <input class="np-form-input" id="npUpc" type="text" placeholder="예: 062067012345" maxlength="20"
+        oninput="this.value=this.value.replace(/\D/g,'')">
+    </div>
+    <div class="np-form-row">
+      <label class="np-form-label" for="npName">제품명 <span style="color:var(--red)">*</span></label>
+      <input class="np-form-input" id="npName" type="text" placeholder="예: Budweiser 355ml 24pk" maxlength="200">
+    </div>
+    <div class="np-form-row-2">
+      <div class="np-form-row" style="margin-bottom:0">
+        <label class="np-form-label" for="npCost">단가 (원가)</label>
+        <input class="np-form-input" id="npCost" type="number" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="np-form-row" style="margin-bottom:0">
+        <label class="np-form-label" for="npPrice">판매가 <span style="color:var(--fg3);font-weight:400">(선택)</span></label>
+        <input class="np-form-input" id="npPrice" type="number" min="0" step="0.01" placeholder="0.00">
+      </div>
+    </div>
+    <div class="np-form-row">
+      <label class="np-form-label" for="npVendor">공급업체</label>
+      <select class="np-form-input" id="npVendor">
+        <option value="Connect">Connect</option>
+        <option value="BDL">BDL</option>
+        <option value="Sleeman">Sleeman</option>
+        <option value="">기타</option>
+      </select>
+    </div>
+    <div class="np-modal-actions">
+      <button class="np-btn-cancel" id="npCancel">취소</button>
+      <button class="np-btn-confirm" id="npConfirm">✅ 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- Order detail drawer -->
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetail(event)">
+  <div class="detail-drawer" onclick="event.stopPropagation()">
+    <div class="detail-top">
+      <div>
+        <h2 id="detailTitle">발주 상세</h2>
+        <div class="detail-meta">
+          <span>공급업체: <strong id="detailSupplier">—</strong></span>
+          <span>주문번호: <strong id="detailOrderNo">—</strong></span>
+          <span>주문일: <strong id="detailOrderDate">—</strong></span>
+          <span>입고일: <strong id="detailDelivery">—</strong></span>
+          <span>상태: <strong id="detailStatus">—</strong></span>
+        </div>
+      </div>
+      <button class="detail-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="detail-body">
+      <div style="overflow-x:auto">
+        <table class="detail-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>바코드</th>
+              <th>제품명</th>
+              <th style="text-align:center">주문수량</th>
+              <th style="text-align:center">입고수량</th>
+              <th style="text-align:right">단가</th>
+              <th style="text-align:right">합계</th>
+            </tr>
+          </thead>
+          <tbody id="detailTbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="detail-footer">
+      <div class="detail-save-status">
+        수정할 항목의 수량이나 단가를 변경한 후 저장하세요.
+        <span class="save-indicator" id="saveIndicator">✅ 저장 완료</span>
+      </div>
+      <button class="btn btn-secondary" onclick="closeDetail()">닫기</button>
+      <button class="btn btn-primary" id="detailSaveBtn" onclick="saveDetailChanges()">💾 변경사항 저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ═══════════════════════════════════
+   API 설정
+══════════════════════════════════ */
+// 로컬 서버에서 서빙될 때는 상대 경로, 외부에서 열릴 때는 localhost
+const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+const bc = new BroadcastChannel('inventory-update');
+
+let INVENTORY = [];  // GET /api/products 에서 로드
+
+async function loadInventory() {
+  try {
+    const res = await fetch(`${API_BASE}/api/products?limit=2000`);
+    if (res.ok) INVENTORY = await res.json();
+  } catch {}
+}
+
+async function checkConnection() {
+  const el = document.getElementById('connStatus');
+  if (!el) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/products?limit=1`, { signal: AbortSignal.timeout(2000) });
+    el.textContent = '● 서버 연결됨';
+    el.style.color = 'var(--green)';
+    return res.ok;
+  } catch {
+    el.textContent = '● 서버 오프라인';
+    el.style.color = 'var(--red)';
+    return false;
+  }
+}
+
+/* matchProduct — SKU맵 → UPC → 제품명 순 */
+function matchProduct(item) {
+  // 0. Saved SKU → UPC mapping
+  const mapKey = `${currentMeta.supplier}:${item.sku}`;
+  if (SKU_MAP[mapKey]) {
+    const { barcode } = SKU_MAP[mapKey];
+    const found = INVENTORY.find(p => p.barcode === barcode);
+    return { type: 'linked', product: found || { name: '신규 등록 예정', barcode } };
+  }
+  // 1. UPC from file (BDL)
+  if (item.upc) {
+    const found = INVENTORY.find(p => p.barcode === item.upc);
+    if (found) return { type: 'upc', product: found };
+  }
+  // 2. Name match: 2+ key words (>3 chars) in common
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+  const descWords = norm(item.desc).split(' ').filter(w => w.length > 3);
+  let best = null, bestScore = 0;
+  for (const inv of INVENTORY) {
+    const invName = norm(inv.name);
+    const score = descWords.filter(w => invName.includes(w)).length;
+    if (score >= 2 && score > bestScore) { bestScore = score; best = inv; }
+  }
+  if (best) return { type: 'name', product: best };
+  return { type: 'none', product: null };
+}
+
+function matchBadgeHTML(item, i) {
+  const { type, product } = matchProduct(item);
+  if (type === 'upc')    return `<span class="match-badge match-upc"    title="${product.name}">✅ <span>바코드 일치</span></span>`;
+  if (type === 'linked') return `<span class="match-badge match-linked"  title="${product.name}">🔗 <span>연결됨</span></span>`;
+  if (type === 'name')   return `<span class="match-badge match-name"    title="${product.name}">🔍 <span>${product.name.substring(0,20)}…</span></span>`;
+  // ❌ 미등록 — UPC 입력 필드 + 신규 등록 버튼
+  return `<div class="upc-input-wrap">
+    <span class="match-badge match-none" style="padding:2px 5px;flex-shrink:0">❌</span>
+    <input type="text" class="upc-inp" id="upc-inp-${i}" placeholder="UPC (12자리)"
+      maxlength="13" oninput="this.value=this.value.replace(/\\D/g,'')"
+      onkeydown="if(event.key==='Enter')saveSkuMapping(${i})">
+    <button class="link-btn" onclick="saveSkuMapping(${i})">연결</button>
+    <button class="new-product-btn" onclick="openNewProductModal(${i})">➕ 신규</button>
+  </div>`;
+}
+
+/* ═══════════════════════════════════
+   SKU → UPC mapping (저장: /api/sku-map)
+   key: "Supplier:item_no"  value: { barcode, product_id, id }
+══════════════════════════════════ */
+let SKU_MAP = {};
+
+async function loadSkuMap() {
+  try {
+    const res = await fetch(`${API_BASE}/api/sku-map`);
+    if (res.ok) {
+      const maps = await res.json();
+      for (const m of maps) {
+        SKU_MAP[`${m.supplier}:${m.item_no}`] = { barcode: m.barcode, product_id: m.product_id, id: m.id };
+      }
+    }
+  } catch {}
+  // localStorage 기존 데이터 병합 (마이그레이션)
+  try {
+    const v = localStorage.getItem('sku_map');
+    if (v) {
+      const local = JSON.parse(v);
+      for (const [k, val] of Object.entries(local)) {
+        if (!SKU_MAP[k] && val.barcode) SKU_MAP[k] = val;
+      }
+    }
+  } catch {}
+}
+
+/* ═══════════════════════════════════
+   State
+══════════════════════════════════ */
+let parsedItems  = [];
+let currentMeta  = {};
+
+/* ═══════════════════════════════════
+   Drop zone events
+══════════════════════════════════ */
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+/* ═══════════════════════════════════
+   File handling
+══════════════════════════════════ */
+async function handleFiles(files) {
+  if (!files.length) return;
+  for (const file of files) {
+    showStatus(`"${file.name}" 분석 중…`);
+    try {
+      let text = '';
+      if (file.name.match(/\.txt$/i)) {
+        text = await readText(file);
+      } else if (file.name.match(/\.pdf$/i)) {
+        text = await readPDF(file);
+      } else {
+        showToast('PDF 또는 TXT 파일만 지원합니다', 'error'); hideStatus(); continue;
+      }
+      const result = parseSupplier(text, file.name);
+      if (!result) { showToast('지원하지 않는 파일 형식입니다', 'error'); hideStatus(); continue; }
+      parsedItems = result.items;
+      currentMeta = result.meta;
+      renderResult(result);
+      hideStatus();
+    } catch (err) {
+      console.error(err);
+      showToast('파일 읽기 오류: ' + err.message, 'error');
+      hideStatus();
+    }
+  }
+}
+
+function readText(file) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload  = e => res(e.target.result);
+    reader.onerror = rej;
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+async function readPDF(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    // Reconstruct lines from items
+    let lastY = null;
+    let line  = '';
+    for (const item of content.items) {
+      const y = Math.round(item.transform[5]);
+      if (lastY !== null && Math.abs(y - lastY) > 3) {
+        text += line + '\n';
+        line = '';
+      }
+      line  += item.str + ' ';
+      lastY  = y;
+    }
+    if (line.trim()) text += line + '\n';
+  }
+  return text;
+}
+
+/* ═══════════════════════════════════
+   Parsers
+══════════════════════════════════ */
+function parseSupplier(text, filename) {
+  if (text.includes('CONNECT LOGISTICS') || text.includes('connect-logistics')) return parseConnect(text);
+  if (text.includes('Brewers Distributor') || text.includes('BDL') || text.includes('BREWERS DISTRIBUTOR')) return parseBDL(text);
+  if (text.includes('SLEEMAN') || filename.toLowerCase().includes('sleeman')) return parseSleeman(text);
+  return null;
+}
+
+/* ── Connect (PDF) ───────────────── */
+function parseConnect(text) {
+  const meta = {
+    supplier: 'Connect',
+    orderNo:  (text.match(/Order Number[–\-]\s*([\w\s]+)/i) || [])[1]?.trim() || '—',
+    orderDate:(text.match(/Order Date[–\-]\s*([\d/]+)/i) || [])[1]?.trim() || '—',
+    delivery: (text.match(/Invoice Date[–\-]\s*([\d/]+)/i) || [])[1]?.trim() || '—',
+  };
+
+  const items = [];
+  const lines = text.split('\n');
+  for (const raw of lines) {
+    // Pattern: optional "CAN/BMC/etc", 6-digit SKU, ordered, shipped, CS, description, ...price series
+    const m = raw.match(/(?:CAN|BMC|OMC|KEG)?\s*(\d{6})\s+(\d+)\s+(\d+)\s+CS\s+(.+?)\s{2,}(\d+)\s+\d+\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+([\d.]+)\s*$/);
+    if (!m) continue;
+    const [, sku, ordered, shipped, desc, , total] = m;
+    const qty = parseInt(shipped);
+    if (qty === 0 || desc.includes('ORDER CHARGE')) continue;
+
+    // Extract delivered unit price (5th number from end-ish)
+    const nums = raw.trim().split(/\s+/);
+    const unitPrice = nums[nums.length - 2] ? parseFloat(nums[nums.length - 2]) : 0;
+
+    items.push({ sku, upc: '', desc: desc.trim(), qty, unitPrice, total: parseFloat(total), include: true });
+  }
+  return { meta, items };
+}
+
+/* ── BDL (PDF) ───────────────────── */
+function parseBDL(text) {
+  const meta = {
+    supplier: 'BDL',
+    orderNo:  (text.match(/Order Number\s+([\d]+)/i) || [])[1]?.trim() || '—',
+    orderDate:(text.match(/Order Date\s+([\d\-]+)/i) || [])[1]?.trim() || '—',
+    delivery: (text.match(/Delivery Date\s+([\d\-]+)/i) || [])[1]?.trim() || '—',
+  };
+
+  const items = [];
+  const lines = text.split('\n');
+  for (const raw of lines) {
+    // Pattern: 6-digit item, 12-digit UPC, 7-digit SAP, description, qty_ordered, qty_confirmed, unit_price, extended
+    const m = raw.match(/(\d{6})\s+([\d]{12})\s+([\d]{7})\s+(.+?)\s+(\d+)\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s*$/);
+    if (!m) continue;
+    const [, sku, upc, , desc, ordered, confirmed, unitPrice, total] = m;
+    const qty = parseInt(confirmed);
+    if (qty === 0) continue;
+    items.push({ sku, upc, desc: cleanDesc(desc), qty, unitPrice: parseFloat(unitPrice), total: parseFloat(total), include: true });
+  }
+  return { meta, items };
+}
+
+/* ── Sleeman (TXT) ───────────────── */
+function parseSleeman(text) {
+  const meta = {
+    supplier: 'Sleeman',
+    orderNo:  (text.match(/Order#:\s*([\d]+)/i) || [])[1]?.trim() || '—',
+    orderDate:(text.match(/Order Date:\s*([\w\-]+)/i) || [])[1]?.trim() || '—',
+    delivery: (text.match(/Delivery Date:\s*([\w\-]+)/i) || [])[1]?.trim() || '—',
+  };
+
+  const items = [];
+  const lines = text.split('\n');
+  for (const raw of lines) {
+    const m = raw.match(/^\s+(\d{6})\s+(.+?)\s+(\d+)\s+Case\s+([\d.]+)\s+([\d.]+)\s*$/);
+    if (!m) continue;
+    const [, sku, desc, qty, unitPrice, total] = m;
+    items.push({ sku, upc: '', desc: cleanDesc(desc), qty: parseInt(qty), unitPrice: parseFloat(unitPrice), total: parseFloat(total), include: true });
+  }
+  return { meta, items };
+}
+
+function cleanDesc(d) {
+  return d.replace(/\s{2,}/g, ' ').trim();
+}
+
+/* ═══════════════════════════════════
+   Render result table
+══════════════════════════════════ */
+function renderResult(result) {
+  const { meta, items } = result;
+
+  // Supplier styling
+  const supClass = { Connect: 'sup-connect', BDL: 'sup-bdl', Sleeman: 'sup-sleeman' };
+  const supColor = { Connect: 'var(--accent)', BDL: 'var(--orange)', Sleeman: 'var(--green)' };
+
+  document.getElementById('resultTitle').textContent = `📋 ${meta.supplier} 발주서 파싱 결과`;
+  document.getElementById('metaSupplier').textContent = meta.supplier;
+  document.getElementById('metaOrderNo').textContent  = meta.orderNo;
+  document.getElementById('metaDate').textContent     = meta.orderDate;
+  document.getElementById('metaDelivery').textContent = meta.delivery;
+
+  // Match stats for legend
+  updateMatchStats(items);
+  document.getElementById('matchLegend').style.display = '';
+
+  const tbody = document.getElementById('itemsTbody');
+  tbody.innerHTML = items.map((item, i) => `
+    <tr id="row-${i}" class="${item.include ? '' : 'skip-row'}">
+      <td style="width:28px;text-align:center">
+        <input type="checkbox" checked id="chk-${i}" onchange="toggleRow(${i})" style="cursor:pointer;width:14px;height:14px">
+      </td>
+      <td class="mono" style="color:var(--fg2)">${item.sku}</td>
+      <td class="mono" style="font-size:11px;color:var(--fg3)">${item.upc || '—'}</td>
+      <td style="font-weight:500;max-width:220px">${item.desc}</td>
+      <td>${matchBadgeHTML(item, i)}</td>
+      <td><span class="sup-tag ${supClass[meta.supplier]}">${meta.supplier}</span></td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums">$${item.unitPrice.toFixed(2)}</td>
+      <td style="text-align:center">
+        <div class="qty-wrap" style="justify-content:center">
+          <button onclick="changeQty(${i},-1)">−</button>
+          <input type="number" class="qty-input" id="qty-${i}" value="${item.qty}" min="0"
+            onchange="updateQty(${i})" oninput="updateQty(${i})">
+          <button onclick="changeQty(${i},1)">+</button>
+        </div>
+      </td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600" id="total-${i}">
+        $${item.total.toFixed(2)}
+      </td>
+      <td>
+        <button class="skip-btn" id="skip-${i}" onclick="toggleRow(${i})">제외</button>
+      </td>
+    </tr>
+  `).join('');
+
+  document.getElementById('successPanel').classList.remove('show');
+  document.getElementById('importBtn').style.display = '';
+  document.getElementById('resultCard').classList.add('show');
+  updateSummary();
+}
+
+function toggleRow(i) {
+  parsedItems[i].include = !parsedItems[i].include;
+  const row = document.getElementById('row-' + i);
+  const chk = document.getElementById('chk-' + i);
+  const btn = document.getElementById('skip-' + i);
+  row.classList.toggle('skip-row', !parsedItems[i].include);
+  chk.checked = parsedItems[i].include;
+  btn.textContent = parsedItems[i].include ? '제외' : '포함';
+  updateSummary();
+}
+
+function changeQty(i, delta) {
+  const inp = document.getElementById('qty-' + i);
+  const newVal = Math.max(0, (parseInt(inp.value) || 0) + delta);
+  inp.value = newVal;
+  updateQty(i);
+}
+
+function updateQty(i) {
+  const inp = document.getElementById('qty-' + i);
+  const qty = Math.max(0, parseInt(inp.value) || 0);
+  parsedItems[i].qty = qty;
+  parsedItems[i].total = qty * parsedItems[i].unitPrice;
+  document.getElementById('total-' + i).textContent = '$' + parsedItems[i].total.toFixed(2);
+  updateSummary();
+}
+
+function updateSummary() {
+  const active = parsedItems.filter(p => p.include);
+  const totalQty = active.reduce((s, p) => s + p.qty, 0);
+  const totalAmt = active.reduce((s, p) => s + p.total, 0);
+  document.getElementById('summaryText').innerHTML =
+    `포함 품목 <strong>${active.length}개</strong> · 총 <strong>${totalQty} CS</strong> · 금액 <strong>$${totalAmt.toFixed(2)}</strong>`;
+}
+
+/* ═══════════════════════════════════
+   SKU Mapping save → /api/sku-map
+══════════════════════════════════ */
+async function saveSkuMapping(i) {
+  const inp = document.getElementById('upc-inp-' + i);
+  if (!inp) return;
+  const barcode = inp.value.trim().replace(/\D/g, '');
+  if (barcode.length < 8) { showToast('UPC 바코드를 올바르게 입력해주세요 (8자리 이상)', 'error'); return; }
+
+  const item = parsedItems[i];
+  const mapKey = `${currentMeta.supplier}:${item.sku}`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/sku-map`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supplier: currentMeta.supplier, item_no: item.sku, barcode })
+    });
+    if (res.ok) {
+      const saved = await res.json();
+      SKU_MAP[mapKey] = { barcode, product_id: saved.product_id, id: saved.id };
+    } else {
+      throw new Error('저장 실패');
+    }
+  } catch {
+    // 오프라인 fallback: localStorage
+    SKU_MAP[mapKey] = { barcode, savedAt: Date.now() };
+    try { const m = {}; m[mapKey] = SKU_MAP[mapKey]; localStorage.setItem('sku_map', JSON.stringify({...JSON.parse(localStorage.getItem('sku_map')||'{}'), ...m})); } catch {}
+  }
+
+  // 행 매칭 셀 업데이트
+  const row = document.getElementById('row-' + i);
+  if (row) {
+    const cells = row.querySelectorAll('td');
+    if (cells[4]) cells[4].innerHTML = matchBadgeHTML(item, i);
+  }
+  updateMatchStats(parsedItems);
+  showToast(`🔗 UPC ${barcode} 연결 완료 — 다음 주문부터 자동 매칭`, 'success');
+}
+
+function updateMatchStats(items) {
+  const counts = { upc: 0, linked: 0, name: 0, none: 0 };
+  (items || parsedItems).forEach(item => { counts[matchProduct(item).type]++; });
+  const el = document.getElementById('matchStats');
+  if (el) el.textContent = `✅ ${counts.upc}  🔗 ${counts.linked}  🔍 ${counts.name}  ❌ ${counts.none}`;
+}
+
+/* ═══════════════════════════════════
+   SKU→바코드 매핑 자동 저장 (입고 확정 시)
+══════════════════════════════════ */
+async function autoSaveSkuMappings(active) {
+  if (currentMeta.supplier !== 'Connect') return 0;
+  let saved = 0;
+  for (const item of active) {
+    if (!item.sku) continue;
+    const mapKey = `${currentMeta.supplier}:${item.sku}`;
+    // 이미 바코드까지 매핑된 경우 건너뜀
+    if (SKU_MAP[mapKey]?.barcode) continue;
+    const match = matchProduct(item);
+    if (!match.product) continue;
+    const barcode = item.upc || match.product.barcode || '';
+    const productId = match.product.id;
+    if (!productId) continue;
+    try {
+      const res = await fetch(`${API_BASE}/api/sku-map`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supplier: currentMeta.supplier, item_no: item.sku, barcode: barcode || null, product_id: productId }),
+      });
+      if (res.ok) {
+        const m = await res.json();
+        SKU_MAP[mapKey] = { barcode, product_id: productId, id: m.id };
+        saved++;
+      }
+    } catch {}
+  }
+  return saved;
+}
+
+/* ═══════════════════════════════════
+   Import confirm → /api/orders + /api/orders/{id}/receive
+══════════════════════════════════ */
+async function confirmImport() {
+  const active = parsedItems.filter(p => p.include && p.qty > 0);
+  if (!active.length) { showToast('입고할 항목이 없습니다', 'error'); return; }
+
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 처리 중…';
+
+  const totalQty = active.reduce((s, p) => s + p.qty, 0);
+  const totalAmt = active.reduce((s, p) => s + p.total, 0);
+
+  try {
+    // 1. 주문 생성
+    const orderData = {
+      supplier:      currentMeta.supplier,
+      order_no:      currentMeta.orderNo || `IMP-${Date.now()}`,
+      order_date:    currentMeta.orderDate || null,
+      delivery_date: currentMeta.delivery || null,
+      items: active.map(item => {
+        const match = matchProduct(item);
+        return {
+          supplier_sku: item.sku,
+          barcode:      item.upc || (match.product?.barcode) || '',
+          name:         item.desc,
+          qty_ordered:  item.qty,
+          qty_received: item.qty,
+          unit_price:   item.unitPrice
+        };
+      })
+    };
+
+    const res = await fetch(`${API_BASE}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData),
+      signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined
+    });
+
+    if (!res.ok) {
+      let detail = `주문 생성 실패 (${res.status})`;
+      try { const e = await res.json(); if (e.detail) detail = e.detail; } catch {}
+      throw new Error(detail);
+    }
+
+    const order = await res.json();
+    const orderId = order.order_id ?? order.id;
+
+    // 2. 입고 처리
+    const rcvRes = await fetch(`${API_BASE}/api/orders/${orderId}/receive`, {
+      method: 'POST',
+      signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined
+    });
+
+    if (!rcvRes.ok) {
+      let detail = `입고 처리 실패 (${rcvRes.status})`;
+      try { const e = await rcvRes.json(); if (e.detail) detail = e.detail; } catch {}
+      throw new Error(detail);
+    }
+
+    // 성공
+    document.getElementById('successPanel').classList.add('show');
+    document.getElementById('summaryText').textContent = '';
+    btn.style.display = 'none';
+
+    // Connect: SKU→바코드 매핑 자동 저장
+    const skuSaved = await autoSaveSkuMappings(active);
+
+    document.getElementById('successMsg').textContent =
+      `${active.length}개 품목, ${totalQty} CS 입고 완료 · 합계 $${totalAmt.toFixed(2)} · 주문 #${orderId}` +
+      (skuSaved > 0 ? ` · SKU 매핑 ${skuSaved}개 저장` : '');
+
+    renderHistory();
+    bc.postMessage('stock-updated');
+    showToast('✅ 입고 처리 완료!', 'success');
+
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '✅ 입고 확인';
+  }
+}
+
+/* ═══════════════════════════════════
+   History → /api/orders
+══════════════════════════════════ */
+async function renderHistory() {
+  try {
+    const res = await fetch(`${API_BASE}/api/orders?limit=20`);
+    if (!res.ok) return;
+    const orders = await res.json();
+    if (!orders.length) return;
+    const div = document.getElementById('historyDiv');
+    div.style.display = '';
+    const supClass = { Connect: 'sup-connect', BDL: 'sup-bdl', Sleeman: 'sup-sleeman' };
+    const dtStr = s => s ? s.replace('T', ' ').substring(0, 16) : '—';
+    document.getElementById('historyList').innerHTML = orders.map(o => `
+      <div class="hist-item" onclick="showOrderDetail(${o.id})">
+        <span class="sup-tag ${supClass[o.supplier] || ''}">${o.supplier}</span>
+        <span class="hist-sup">${o.order_no}</span>
+        <span class="hist-info">${o.item_count}품목 · $${o.total_amount.toFixed(2)} · <span style="font-size:11px;padding:1px 5px;border-radius:3px;background:${o.status==='received'?'var(--green-bg)':'var(--yellow-bg)'};color:${o.status==='received'?'var(--green)':'var(--yellow)'}">${o.status==='received'?'입고완료':'대기중'}</span></span>
+        <span class="hist-time">${dtStr(o.created_at)}</span>
+        <span class="hist-chevron">›</span>
+      </div>
+    `).join('');
+  } catch {}
+}
+
+/* ═══════════════════════════════════
+   Order detail drawer
+══════════════════════════════════ */
+let currentOrderId = null;
+let detailItems = [];
+
+async function showOrderDetail(orderId) {
+  currentOrderId = orderId;
+  detailItems = [];
+  document.getElementById('detailSaveBtn').disabled = false;
+  document.getElementById('saveIndicator').style.display = 'none';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/orders/${orderId}`);
+    if (!res.ok) { showToast('주문 정보를 불러올 수 없습니다', 'error'); return; }
+    const order = await res.json();
+
+    const supClass = { Connect: 'sup-connect', BDL: 'sup-bdl', Sleeman: 'sup-sleeman' };
+    const dtStr = s => s || '—';
+
+    document.getElementById('detailTitle').textContent = `📋 발주 상세 — ${order.order_no}`;
+    document.getElementById('detailSupplier').innerHTML = `<span class="sup-tag ${supClass[order.supplier] || ''}">${order.supplier}</span>`;
+    document.getElementById('detailOrderNo').textContent = order.order_no;
+    document.getElementById('detailOrderDate').textContent = dtStr(order.order_date);
+    document.getElementById('detailDelivery').textContent = dtStr(order.delivery_date);
+    document.getElementById('detailStatus').innerHTML = order.status === 'received'
+      ? '<span style="color:var(--green);font-weight:600">✅ 입고완료</span>'
+      : '<span style="color:var(--yellow);font-weight:600">⏳ 대기중</span>';
+
+    detailItems = order.items;
+    document.getElementById('detailTbody').innerHTML = order.items.map((item, i) => `
+      <tr id="drow-${i}">
+        <td class="mono" style="color:var(--fg2);font-size:11px">${item.supplier_sku || '—'}</td>
+        <td class="mono" style="color:var(--fg3);font-size:11px">${item.barcode || '—'}</td>
+        <td style="font-weight:500;max-width:200px">${item.name}</td>
+        <td style="text-align:center;color:var(--fg2)">${item.qty_ordered}</td>
+        <td style="text-align:center">
+          <input type="number" class="edit-inp" id="dqty-${i}" value="${item.qty_received}" min="0"
+            oninput="markChanged(${i},'qty')">
+        </td>
+        <td style="text-align:right">
+          <input type="number" class="edit-inp" id="dprice-${i}" value="${item.unit_price.toFixed(2)}" min="0" step="0.01"
+            oninput="markChanged(${i},'price')">
+        </td>
+        <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600" id="dtotal-${i}">
+          $${(item.qty_received * item.unit_price).toFixed(2)}
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('detailOverlay').classList.add('show');
+  } catch (err) {
+    showToast('오류: ' + err.message, 'error');
+  }
+}
+
+function markChanged(i, field) {
+  const qtyInp   = document.getElementById(`dqty-${i}`);
+  const priceInp = document.getElementById(`dprice-${i}`);
+  const qty   = parseFloat(qtyInp.value) || 0;
+  const price = parseFloat(priceInp.value) || 0;
+  document.getElementById(`dtotal-${i}`).textContent = `$${(qty * price).toFixed(2)}`;
+  if (field === 'qty')   qtyInp.classList.add('changed');
+  if (field === 'price') priceInp.classList.add('changed');
+  document.getElementById('saveIndicator').style.display = 'none';
+}
+
+async function saveDetailChanges() {
+  if (!currentOrderId || !detailItems.length) return;
+
+  const btn = document.getElementById('detailSaveBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 저장 중…';
+
+  let savedCount = 0;
+  let errors = 0;
+
+  for (let i = 0; i < detailItems.length; i++) {
+    const qtyInp   = document.getElementById(`dqty-${i}`);
+    const priceInp = document.getElementById(`dprice-${i}`);
+    const hasChange = qtyInp.classList.contains('changed') || priceInp.classList.contains('changed');
+    if (!hasChange) continue;
+
+    const newQty   = parseFloat(qtyInp.value) || 0;
+    const newPrice = parseFloat(priceInp.value) || 0;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/orders/${currentOrderId}/items/${detailItems[i].id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qty_received: newQty, unit_price: newPrice }),
+      });
+      if (res.ok) {
+        qtyInp.classList.remove('changed');
+        priceInp.classList.remove('changed');
+        savedCount++;
+      } else {
+        errors++;
+      }
+    } catch { errors++; }
+  }
+
+  btn.disabled = false;
+  btn.textContent = '💾 변경사항 저장';
+
+  if (errors === 0 && savedCount > 0) {
+    const ind = document.getElementById('saveIndicator');
+    ind.textContent = `✅ ${savedCount}개 항목 저장 완료`;
+    ind.style.display = 'inline';
+    bc.postMessage('stock-updated');
+    renderHistory();
+    showToast(`✅ ${savedCount}개 항목이 수정되었습니다`, 'success');
+  } else if (errors > 0) {
+    showToast(`❌ ${errors}개 항목 저장 실패`, 'error');
+  } else {
+    showToast('변경된 내용이 없습니다', 'error');
+  }
+}
+
+function closeDetail(e) {
+  if (e && e.target !== document.getElementById('detailOverlay')) return;
+  document.getElementById('detailOverlay').classList.remove('show');
+  currentOrderId = null;
+  detailItems = [];
+}
+
+/* ═══════════════════════════════════
+   Helpers
+══════════════════════════════════ */
+function showStatus(msg) {
+  document.getElementById('statusMsg').textContent = msg;
+  document.getElementById('statusBar').classList.add('show');
+}
+function hideStatus() { document.getElementById('statusBar').classList.remove('show'); }
+
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function resetForm() {
+  parsedItems = []; currentMeta = {};
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('successPanel').classList.remove('show');
+  document.getElementById('matchLegend').style.display = 'none';
+  fileInput.value = '';
+}
+
+/* ═══════════════════════════════════
+   New Product Registration Modal
+══════════════════════════════════ */
+let _npItemIndex = -1;
+
+function openNewProductModal(i) {
+  _npItemIndex = i;
+  const item = parsedItems[i];
+
+  // Pre-fill from parsed item
+  document.getElementById('npUpc').value   = item.upc || '';
+  document.getElementById('npName').value  = item.desc || '';
+  document.getElementById('npCost').value  = item.unitPrice > 0 ? item.unitPrice.toFixed(2) : '';
+  document.getElementById('npPrice').value = '';
+  document.getElementById('npVendor').value = currentMeta.supplier || 'Connect';
+
+  const sub = document.getElementById('npModalSub');
+  sub.textContent = `SKU: ${item.sku}  •  발주서 품목명: "${item.desc}"`;
+
+  document.getElementById('npModal').hidden = false;
+  setTimeout(() => document.getElementById('npName').focus(), 50);
+}
+
+document.getElementById('npCancel').addEventListener('click', () => {
+  document.getElementById('npModal').hidden = true;
+});
+document.getElementById('npModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('npModal')) document.getElementById('npModal').hidden = true;
+});
+
+document.getElementById('npConfirm').addEventListener('click', async () => {
+  const name    = document.getElementById('npName').value.trim();
+  if (!name) { document.getElementById('npName').focus(); showToast('제품명을 입력하세요', 'error'); return; }
+
+  const barcode = document.getElementById('npUpc').value.trim() || null;
+  const cost    = parseFloat(document.getElementById('npCost').value)  || 0;
+  const price   = parseFloat(document.getElementById('npPrice').value) || 0;
+  const vendor  = document.getElementById('npVendor').value;
+
+  const btn = document.getElementById('npConfirm');
+  btn.disabled = true;
+  btn.textContent = '등록 중…';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, barcode: barcode || null, cost, price, vendor }),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || '등록 실패');
+    }
+    const newProduct = await res.json();
+
+    // If barcode provided, also save SKU mapping
+    if (barcode && _npItemIndex >= 0) {
+      const item = parsedItems[_npItemIndex];
+      const mapKey = `${currentMeta.supplier}:${item.sku}`;
+      try {
+        const mapRes = await fetch(`${API_BASE}/api/sku-map`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ supplier: currentMeta.supplier, item_no: item.sku, barcode }),
+        });
+        if (mapRes.ok) {
+          const saved = await mapRes.json();
+          SKU_MAP[mapKey] = { barcode, product_id: saved.product_id, id: saved.id };
+        }
+      } catch {}
+    }
+
+    // Reload inventory and refresh match cell
+    await loadInventory();
+
+    if (_npItemIndex >= 0) {
+      const row = document.getElementById(`row-${_npItemIndex}`);
+      if (row) {
+        const cells = row.querySelectorAll('td');
+        if (cells[4]) cells[4].innerHTML = matchBadgeHTML(parsedItems[_npItemIndex], _npItemIndex);
+      }
+      updateMatchStats(parsedItems);
+    }
+
+    document.getElementById('npModal').hidden = true;
+    showToast(`✅ "${name}" 등록됐습니다`, 'success');
+    _npItemIndex = -1;
+  } catch (err) {
+    showToast(`❌ ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ 등록';
+  }
+});
+
+/* Init */
+(async () => {
+  await Promise.all([loadInventory(), loadSkuMap()]);
+  await checkConnection();
+  renderHistory();
+})();
+</script>
+</div>

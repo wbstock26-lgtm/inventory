@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<title>제품 일괄 등록</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --bg:#f0f2f5; --surface:#fff; --surface2:#f7f8fa; --border:#e4e7ec;
+  --fg:#111827; --fg2:#6b7280; --fg3:#9ca3af;
+  --accent:#2563eb; --accent-h:#1d4ed8; --accent-bg:#eff6ff;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --yellow:#d97706; --yellow-bg:#fffbeb;
+  --red:#dc2626; --red-bg:#fef2f2;
+  --shadow:0 1px 3px rgba(0,0,0,.08); --radius:8px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+    --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+    --accent:#3b82f6; --accent-h:#2563eb; --accent-bg:#1e2a4a;
+    --green:#4ade80; --green-bg:#0a2010; --yellow:#fbbf24; --yellow-bg:#1f1600;
+    --red:#f87171; --red-bg:#2a0808;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+  --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+  --accent:#3b82f6; --accent-h:#2563eb; --accent-bg:#1e2a4a;
+  --green:#4ade80; --green-bg:#0a2010; --yellow:#fbbf24; --yellow-bg:#1f1600;
+  --red:#f87171; --red-bg:#2a0808;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif; font-size: 14px;
+  background: var(--bg); color: var(--fg);
+  padding-left: max(16px, env(safe-area-inset-left,0px));
+  padding-right: max(16px, env(safe-area-inset-right,0px));
+  padding-bottom: 40px;
+}
+a { color: inherit; text-decoration: none; }
+
+/* Nav */
+.topnav {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 4px;
+  padding: 0 max(16px, env(safe-area-inset-left,0px));
+  height: 52px; position: sticky; top: 0; z-index: 100;
+  box-shadow: var(--shadow);
+}
+.nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+.store-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--accent-bg); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.nav-links { display: flex; gap: 2px; margin-left: 8px; }
+.nav-link { padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--fg2); }
+.nav-link:hover { background: var(--surface2); color: var(--fg); }
+.nav-link.active { background: var(--accent-bg); color: var(--accent); }
+
+/* Page */
+.page { max-width: 960px; margin: 24px auto; }
+h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.subtitle { color: var(--fg2); font-size: 13px; margin-bottom: 20px; }
+
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: 12px;
+  padding: 40px 24px; text-align: center; cursor: pointer;
+  background: var(--surface); transition: .15s;
+}
+.drop-zone.over { border-color: var(--accent); background: var(--accent-bg); }
+.drop-zone.has-files { border-color: var(--green); border-style: solid; }
+.drop-icon { font-size: 36px; margin-bottom: 10px; }
+.drop-label { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.drop-sub { font-size: 12px; color: var(--fg2); }
+#fileInput { position: fixed; top: -9999px; left: -9999px; }
+
+/* File list */
+.file-list { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+.file-row {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+}
+.file-name { font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-status { font-size: 12px; color: var(--fg2); white-space: nowrap; }
+.file-status.done { color: var(--green); }
+.file-status.error { color: var(--red); }
+.file-status.processing { color: var(--accent); }
+
+/* Progress */
+.progress-bar-wrap {
+  height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 12px;
+  display: none;
+}
+.progress-bar-fill { height: 100%; background: var(--accent); transition: width .3s; border-radius: 2px; }
+
+/* Action row */
+.action-row {
+  margin-top: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.btn {
+  padding: 9px 20px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: .15s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+.btn-ghost { background: var(--surface2); color: var(--fg); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--border); }
+.summary-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--fg2);
+}
+.chip strong { font-size: 15px; color: var(--fg); }
+.chip.green { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.chip.green strong { color: var(--green); }
+.chip.yellow { background: var(--yellow-bg); border-color: var(--yellow); color: var(--yellow); }
+.chip.yellow strong { color: var(--yellow); }
+
+/* Result table */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden; margin-top: 20px; box-shadow: var(--shadow);
+}
+.card-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-weight: 700; font-size: 14px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { padding: 8px 14px; text-align: left; color: var(--fg2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); background: var(--surface2); }
+td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--surface2); }
+.badge-new { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: var(--accent); color: #fff; vertical-align: middle; margin-left: 6px; }
+.badge-exists { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--fg2); vertical-align: middle; margin-left: 6px; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,.18); pointer-events: none;
+  animation: slideUp .2s ease; color: #fff;
+}
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+@keyframes slideUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
+</style>
+
+<!-- Nav -->
+<nav class="topnav">
+  <a class="nav-brand" href="/">
+    <div class="store-icon">🦌</div>
+    Little Red Deer Store
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="/">🏠 홈</a>
+    <a class="nav-link" href="/inventory.html">📦 재고 현황</a>
+    <a class="nav-link" href="/import.html">📥 발주 입고</a>
+    <a class="nav-link" href="/sales.html">🛒 판매 입력</a>
+    <a class="nav-link" href="/prices.html">💰 판매가 관리</a>
+    <a class="nav-link active" href="/bulk_import.html">📋 제품 일괄등록</a>
+  </div>
+  <div style="margin-left:auto">
+    <a href="https://claude.ai/artifact/BYeqrU4RGJhQ8BzPhePBjP" target="_blank"
+       style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-bg,#eff6ff);border:1px solid var(--accent,#2563eb);padding:4px 11px;border-radius:6px;text-decoration:none;white-space:nowrap">📋 운영 가이드</a>
+  </div>
+</nav>
+
+<div class="page">
+  <h1>📋 제품 일괄 등록</h1>
+  <p class="subtitle">GTI 판매 보고서(PDF/스크린샷)를 여러 개 한꺼번에 업로드해서 제품 목록을 자동 구축합니다.</p>
+
+  <!-- Drop zone -->
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".pdf,image/*" multiple>
+    <div class="drop-icon">📂</div>
+    <div class="drop-label">파일을 여기에 드래그하거나 클릭해서 선택</div>
+    <div class="drop-sub">PDF 및 이미지 파일 복수 선택 가능 · GTI Department Sales By Date 보고서</div>
+  </div>
+
+  <div class="file-list" id="fileList"></div>
+  <div class="progress-bar-wrap" id="progressWrap">
+    <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+  </div>
+
+  <!-- Action -->
+  <div class="action-row" id="actionRow" style="display:none">
+    <div class="summary-chips">
+      <div class="chip"><strong id="chipFiles">0</strong>파일</div>
+      <div class="chip"><strong id="chipItems">0</strong>고유 UPC</div>
+      <div class="chip green"><strong id="chipNew">0</strong>신규 등록 예정</div>
+      <div class="chip yellow"><strong id="chipExists">0</strong>기존 제품</div>
+    </div>
+    <button class="btn btn-primary" id="registerBtn" onclick="registerAll()" disabled>
+      ✅ 신규 제품 등록
+    </button>
+    <button class="btn btn-ghost" onclick="resetAll()">초기화</button>
+  </div>
+
+  <!-- Result table -->
+  <div class="card" id="resultCard" style="display:none">
+    <div class="card-header">
+      <span class="card-title" id="resultTitle">파싱 결과</span>
+      <span style="font-size:12px;color:var(--fg2)" id="resultSub"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>UPC 바코드</th>
+            <th>제품명</th>
+            <th>발견 횟수</th>
+            <th>재고 수량</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// UPC → {name, count, files} 맵
+const discoveredMap = new Map();
+let fileStatuses = [];   // [{name, status, count}]
+let registeredResult = null;
+
+// ── Drop zone ──────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('over');
+  handleFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', e => handleFiles([...e.target.files]));
+
+// ── File handling ──────────────────────────────────────
+async function handleFiles(files) {
+  if (!files.length) return;
+  dropZone.classList.add('has-files');
+  document.getElementById('progressWrap').style.display = 'block';
+
+  let done = 0;
+  for (const file of files) {
+    const idx = fileStatuses.length;
+    fileStatuses.push({ name: file.name, status: 'processing', count: 0 });
+    renderFileList();
+    try {
+      const items = file.type === 'application/pdf'
+        ? await parsePdf(file)
+        : await parseImage(file);
+      items.forEach(i => {
+        if (!discoveredMap.has(i.upc)) {
+          discoveredMap.set(i.upc, { name: i.name, qty: i.qty || 0, count: 0, files: [] });
+        }
+        const d = discoveredMap.get(i.upc);
+        d.count++;
+        if (i.qty && i.qty > d.qty) d.qty = i.qty;  // 여러 파일 중 최대값
+        if (!d.files.includes(file.name)) d.files.push(file.name);
+      });
+      fileStatuses[idx].status = 'done';
+      fileStatuses[idx].count  = items.length;
+    } catch(e) {
+      fileStatuses[idx].status = 'error';
+      fileStatuses[idx].error  = e.message;
+    }
+    done++;
+    document.getElementById('progressFill').style.width = (done / files.length * 100) + '%';
+    renderFileList();
+  }
+
+  await updateChips();
+  fileInput.value = '';
+}
+
+// ── PDF 파싱 ───────────────────────────────────────────
+async function parsePdf(file) {
+  // 1차: PDF.js 텍스트 레이어 추출 시도 (텍스트 기반 PDF)
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let fullText = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const lines = {};
+    content.items.forEach(item => {
+      const y = Math.round(item.transform[5]);
+      lines[y] = (lines[y] || []);
+      lines[y].push({ x: item.transform[4], text: item.str });
+    });
+    Object.keys(lines).sort((a,b) => b-a).forEach(y => {
+      lines[y].sort((a,b) => a.x - b.x);
+      fullText += lines[y].map(i => i.text).join(' ') + '\n';
+    });
+  }
+  const textItems = parseGtiText(fullText);
+  if (textItems.length > 0) return textItems;
+
+  // 2차: 스캔된 PDF → 서버에 PDF 직접 전송 후 Python OCR
+  console.log('[PDF] 텍스트 레이어 없음 → 서버 OCR 처리 중...');
+  const form = new FormData();
+  form.append('file', file, file.name);
+  try {
+    const r = await fetch(`${API_BASE}/api/ocr/pdf?include_zero=true`, { method: 'POST', body: form });
+    if (!r.ok) { console.error('OCR PDF failed:', r.status, await r.text()); return []; }
+    const data = await r.json();
+    console.log(`[PDF] 서버 OCR items: ${data.items.length} | raw_text preview: ${data.raw_text.slice(0, 200)}`);
+    return data.items.map(i => ({ upc: i.upc, name: i.name, qty: i.qty || 0 }));
+  } catch(e) {
+    console.error('OCR PDF fetch error:', e.message);
+    return [];
+  }
+}
+
+// ── Image OCR ─────────────────────────────────────────
+async function parseImage(file) {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_BASE}/api/ocr/image?include_zero=true`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error(`OCR 실패 (${res.status})`);
+  const data = await res.json();
+  return data.items.map(i => ({ upc: i.upc, name: i.name, qty: i.qty || 0 }));
+}
+
+// ── GTI 텍스트 파싱 ────────────────────────────────────
+function parseGtiText(text) {
+  const items = [];
+  const seen  = new Set();
+  for (const line of text.split('\n')) {
+    let upc, name, qty = 0;
+
+    // 형식 1: 123456789012 - 제품명  qty  $amount  (GTI 판매 보고서)
+    let m = line.match(/^(\d{12,13})\s*[-–]\s*(.+?)\s+(\d+)\s+\$/);
+    if (m) {
+      upc  = m[1].slice(-12);
+      name = m[2].trim();
+      qty  = parseInt(m[3], 10) || 0;
+    } else {
+      // 형식 2: 123456789012  제품명  qty  qty2  (재고/스탁 보고서, $ 없음)
+      m = line.match(/^(\d{12,13})\s{2,}(.+?)\s{2,}(\d+)/);
+      if (m) {
+        upc  = m[1].slice(-12);
+        name = m[2].trim();
+        qty  = parseInt(m[3], 10) || 0;
+      }
+    }
+
+    if (!upc) {
+      if (/^\d{10}/.test(line.trim())) console.log('[NO MATCH]', JSON.stringify(line));
+      continue;
+    }
+    console.log('[OK]', upc, qty, JSON.stringify(name));
+    if (!seen.has(upc)) { seen.add(upc); items.push({ upc, name, qty }); }
+  }
+  return items;
+}
+
+// ── Chips & table ─────────────────────────────────────
+async function updateChips() {
+  // 기존 등록 여부 확인
+  const existing = await fetch(`${API_BASE}/api/products?limit=500`)
+    .then(r => r.json()).catch(() => []);
+  const existingBarcodes = new Set(existing.map(p => p.barcode));
+
+  let newCount = 0, exCount = 0;
+  discoveredMap.forEach((val, upc) => {
+    if (existingBarcodes.has(upc)) exCount++;
+    else newCount++;
+  });
+
+  document.getElementById('chipFiles').textContent  = fileStatuses.filter(f => f.status === 'done').length;
+  document.getElementById('chipItems').textContent   = discoveredMap.size;
+  document.getElementById('chipNew').textContent     = countReadyNew();
+  document.getElementById('chipExists').textContent  = exCount;
+  document.getElementById('actionRow').style.display = discoveredMap.size ? 'flex' : 'none';
+  document.getElementById('registerBtn').disabled    = newCount === 0;
+
+  renderResultTable(existingBarcodes);
+}
+
+function renderResultTable(existingBarcodes) {
+  const card = document.getElementById('resultCard');
+  const body = document.getElementById('resultBody');
+  if (!discoveredMap.size) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  document.getElementById('resultTitle').textContent = '파싱된 제품 목록';
+  document.getElementById('resultSub').textContent   = `총 ${discoveredMap.size}개 고유 UPC`;
+
+  const rows = [...discoveredMap.entries()].sort((a, b) => {
+    const aNew = !existingBarcodes.has(a[0]);
+    const bNew = !existingBarcodes.has(b[0]);
+    return bNew - aNew;  // 신규 먼저
+  });
+
+  body.innerHTML = rows.map(([upc, d]) => {
+    const isNew = !existingBarcodes.has(upc);
+    const badge = isNew
+      ? '<span class="badge-new">신규</span>'
+      : '<span class="badge-exists">기존</span>';
+    const qtyCell = isNew
+      ? `<td><input type="number" class="qty-input" data-upc="${upc}" value="${d.qty || 0}" min="-9999" max="9999"
+           style="width:70px;text-align:center;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-size:12px"
+           oninput="onQtyChange(this)"></td>`
+      : `<td style="text-align:center;color:var(--fg3)">—</td>`;
+    return `<tr data-upc="${upc}" data-new="${isNew}">
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px">${upc}</td>
+      <td>${d.name}${badge}</td>
+      <td style="text-align:center;color:var(--fg2)">${d.count}</td>
+      ${qtyCell}
+      <td class="status-cell">${isNew ? '<span style="color:var(--fg3)">수량 입력 필요</span>' : '<span style="color:var(--fg3)">건너뜀</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  // 초기 상태 반영
+  document.querySelectorAll('.qty-input').forEach(onQtyChange);
+}
+
+function renderFileList() {
+  document.getElementById('fileList').innerHTML = fileStatuses.map(f => {
+    const cls  = f.status === 'done' ? 'done' : f.status === 'error' ? 'error' : 'processing';
+    const icon = f.status === 'done' ? '✅' : f.status === 'error' ? '❌' : '⏳';
+    const info = f.status === 'done'  ? `${f.count}개 UPC 발견`
+               : f.status === 'error' ? f.error
+               : '처리 중…';
+    return `<div class="file-row">
+      <span>${icon}</span>
+      <span class="file-name">${f.name}</span>
+      <span class="file-status ${cls}">${info}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Qty input handler ─────────────────────────────────
+function onQtyChange(input) {
+  const qty = parseInt(input.value, 10) || 0;
+  const row = input.closest('tr');
+  const statusCell = row.querySelector('.status-cell');
+  if (qty === 0) {
+    row.style.opacity = '0.45';
+    statusCell.innerHTML = '<span style="color:var(--fg3);text-decoration:line-through">등록 안 함</span>';
+  } else if (qty > 0) {
+    row.style.opacity = '1';
+    statusCell.innerHTML = `<span style="color:var(--success,#4caf7a);font-weight:600">+${qty} 입고</span>`;
+  } else {
+    row.style.opacity = '1';
+    statusCell.innerHTML = `<span style="color:#e8a325;font-weight:600">${qty} 조정</span>`;
+  }
+  // 칩 카운트 갱신
+  document.getElementById('chipNew').textContent = countReadyNew();
+  document.getElementById('registerBtn').disabled = countReadyNew() === 0;
+}
+
+function countReadyNew() {
+  let count = 0;
+  document.querySelectorAll('.qty-input').forEach(inp => {
+    if ((parseInt(inp.value, 10) || 0) !== 0) count++;
+  });
+  return count;
+}
+
+// ── Register ───────────────────────────────────────────
+async function registerAll() {
+  const qtyInputs = document.querySelectorAll('.qty-input');
+  const toRegister = [];
+  qtyInputs.forEach(inp => {
+    const qty = parseInt(inp.value, 10) || 0;
+    if (qty === 0) return;
+    const upc = inp.dataset.upc;
+    const d   = discoveredMap.get(upc);
+    if (d) toRegister.push({ barcode: upc, name: d.name, initial_stock: qty });
+  });
+
+  if (!toRegister.length) { showToast('수량이 입력된 신규 제품이 없습니다', 'error'); return; }
+
+  const btn = document.getElementById('registerBtn');
+  btn.disabled = true; btn.textContent = '등록 중…';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/products/bulk-register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(toRegister),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    registeredResult = await res.json();
+
+    showToast(`✅ ${registeredResult.created}개 제품 등록 완료 (${registeredResult.skipped}개 건너뜀)`, 'success');
+    new BroadcastChannel('inventory-update').postMessage('bulk-registered');
+    await updateChips();
+  } catch(e) {
+    showToast('등록 실패: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '✅ 신규 제품 등록';
+  }
+}
+
+function resetAll() {
+  discoveredMap.clear(); fileStatuses = [];
+  document.getElementById('fileList').innerHTML = '';
+  document.getElementById('actionRow').style.display = 'none';
+  document.getElementById('resultCard').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+  dropZone.classList.remove('has-files');
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+</script>

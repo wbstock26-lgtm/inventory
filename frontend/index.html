@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<title>재고 대시보드</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #f2f3f5;
+  --surface: #ffffff;
+  --border: #e2e4e9;
+  --fg: #1a1d23;
+  --fg2: #6b7280;
+  --fg3: #9ca3af;
+  --blue: #5b7ec5;
+  --blue-light: #8aaad8;
+  --orange: #e8a325;
+  --orange-light: #f0c06a;
+  --accent: #2563eb;
+  --red: #dc2626;
+  --green: #16a34a;
+  --shadow: 0 1px 4px rgba(0,0,0,.08);
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif; font-size: 13px;
+  background: var(--bg); color: var(--fg);
+  padding-left: max(0px, env(safe-area-inset-left,0px));
+  padding-right: max(0px, env(safe-area-inset-right,0px));
+}
+a { color: inherit; text-decoration: none; }
+
+/* ── Top bar ── */
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px;
+  height: 50px; position: sticky; top: 0; z-index: 100;
+  box-shadow: var(--shadow);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; margin-right: 16px; }
+.brand-icon { width: 30px; height: 30px; border-radius: 7px; background: #eff6ff; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.nav-links { display: flex; gap: 2px; }
+.nav-link { padding: 5px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--fg2); white-space: nowrap; }
+.nav-link:hover { background: var(--bg); color: var(--fg); }
+.nav-link.active { background: #eff6ff; color: var(--accent); }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.refresh-btn {
+  padding: 5px 13px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border); background: var(--surface); color: var(--fg2); cursor: pointer;
+}
+.refresh-btn:hover { background: var(--bg); }
+.last-updated { font-size: 11px; color: var(--fg3); }
+
+/* ── Layout ── */
+.layout { display: flex; min-height: calc(100vh - 50px); }
+
+/* Sidebar */
+.sidebar {
+  width: 180px; flex-shrink: 0; background: var(--surface);
+  border-right: 1px solid var(--border); padding: 20px 14px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--fg3); margin-bottom: 6px; }
+.filter-select {
+  width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); font-size: 12px; font-family: 'Inter', sans-serif; color: var(--fg); appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px; cursor: pointer;
+}
+.sidebar-sep { border: none; border-top: 1px solid var(--border); }
+.kpi-mini { background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+.kpi-mini-val { font-size: 22px; font-weight: 700; line-height: 1; }
+.kpi-mini-label { font-size: 11px; color: var(--fg2); margin-top: 3px; }
+.kpi-mini-val.orange { color: var(--orange); }
+.kpi-mini-val.blue   { color: var(--blue); }
+.kpi-mini-val.red    { color: var(--red); }
+.kpi-mini-val.green  { color: var(--green); }
+
+/* Main */
+.main { flex: 1; overflow: hidden; }
+
+/* KPI strip */
+.kpi-strip {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.kpi-cell {
+  padding: 18px 20px; border-right: 1px solid var(--border); text-align: center;
+}
+.kpi-cell:last-child { border-right: none; }
+.kpi-num { font-size: 30px; font-weight: 700; line-height: 1; }
+.kpi-title { font-size: 11px; color: var(--fg2); margin-top: 5px; line-height: 1.4; }
+.kpi-num.orange { color: var(--orange); }
+
+/* Content grid */
+.content { padding: 18px 20px; display: flex; flex-direction: column; gap: 18px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+
+/* Cards */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden; box-shadow: var(--shadow);
+}
+.card-head {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.card-title { font-weight: 700; font-size: 13px; }
+.card-sub { font-size: 11px; color: var(--fg3); }
+.card-body { padding: 14px 16px; }
+.card-body.no-pad { padding: 0; }
+.chart-wrap { position: relative; height: 220px; }
+.chart-wrap.tall { height: 260px; }
+
+/* Legend */
+.legend { display: flex; gap: 14px; padding: 8px 16px 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--fg2); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  padding: 8px 14px; text-align: left; color: var(--fg2);
+  font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+  border-bottom: 1px solid var(--border); background: #fafbfc; white-space: nowrap;
+}
+td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg); }
+.td-mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+.stock-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+}
+.stock-ok  { background: #f0fdf4; color: var(--green); }
+.stock-low { background: #fff7ed; color: #c2410c; }
+.stock-out { background: #fef2f2; color: var(--red); }
+.bar-inline {
+  display: flex; align-items: center; gap: 8px;
+}
+.bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; }
+
+/* Sort header */
+.sort-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px 0; }
+.sort-label { font-size: 11px; color: var(--fg2); }
+.sort-select {
+  padding: 4px 22px 4px 8px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--bg); font-size: 11px; font-family: 'Inter', sans-serif; cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236b7280'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 7px center;
+}
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--fg3); font-size: 13px; }
+
+/* Tooltip override */
+.chartjs-tooltip { background: rgba(26,29,35,.9) !important; }
+
+/* Month detail modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,.35); align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--surface); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  width: 540px; max-width: calc(100vw - 32px); max-height: 80vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.modal-title { font-size: 14px; font-weight: 700; }
+.modal-close {
+  width: 28px; height: 28px; border: none; background: var(--bg);
+  border-radius: 6px; cursor: pointer; font-size: 16px; color: var(--fg2);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-body { overflow-y: auto; padding: 0 18px 14px; }
+.modal-summary {
+  display: flex; gap: 20px; padding: 10px 0 8px;
+  font-size: 12px; color: var(--fg2); border-bottom: 1px solid var(--border); margin-bottom: 8px;
+}
+.modal-summary b { font-size: 15px; color: var(--fg); }
+.modal-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.modal-table th {
+  text-align: left; font-weight: 600; color: var(--fg3); font-size: 11px;
+  padding: 5px 6px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface);
+}
+.modal-table th:not(:first-child) { text-align: right; }
+.modal-table td { padding: 5px 6px; border-bottom: 1px solid var(--border); color: var(--fg); }
+.modal-table td:not(:first-child) { text-align: right; color: var(--fg2); }
+.modal-table tr:last-child td { border-bottom: none; }
+.modal-table tr:hover td { background: var(--bg); }
+
+/* Supplier popup */
+.sup-popup {
+  display: none; position: fixed; z-index: 600;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18);
+  width: 300px; max-height: 320px; overflow: hidden;
+  flex-direction: column;
+}
+.sup-popup.open { display: flex; }
+.sup-popup-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.sup-popup-title { font-size: 13px; font-weight: 700; }
+.sup-popup-close {
+  width: 22px; height: 22px; border: none; background: var(--bg);
+  border-radius: 5px; cursor: pointer; font-size: 13px; color: var(--fg2);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sup-popup-body { overflow-y: auto; padding: 4px 0 6px; }
+</style>
+
+<!-- Supplier order popup -->
+<div class="sup-popup" id="supPopup">
+  <div class="sup-popup-head">
+    <span class="sup-popup-title" id="supPopupTitle">—</span>
+    <button class="sup-popup-close" onclick="closeSupPopup()">✕</button>
+  </div>
+  <div class="sup-popup-body">
+    <table class="modal-table" style="font-size:12px">
+      <thead><tr>
+        <th>날짜</th><th>발주번호</th><th style="text-align:right">금액</th>
+      </tr></thead>
+      <tbody id="supPopupBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Month detail modal -->
+<div class="modal-overlay" id="monthModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title" id="modalTitle">—</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-summary">
+        <div>판매 건수 <b id="modalCnt">—</b></div>
+        <div>총 매출 <b id="modalAmt">—</b></div>
+      </div>
+      <div id="modalEditBar" style="display:none;margin-bottom:8px">
+        <button id="btnDeleteDay" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer"
+          onclick="deleteDaySales()">이 날 전체 삭제</button>
+        <span id="modalEditNote" style="font-size:11px;color:var(--fg3);margin-left:8px"></span>
+      </div>
+      <table class="modal-table" id="modalTable">
+        <thead id="modalHead"><tr>
+          <th>제품명</th><th>수량</th><th>매출금액</th>
+        </tr></thead>
+        <tbody id="modalBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Top bar -->
+<nav class="topbar">
+  <div class="brand">
+    <div class="brand-icon">🦌</div>
+    Little Red Deer Store
+  </div>
+  <div class="nav-links">
+    <a class="nav-link active" href="/">🏠 홈</a>
+    <a class="nav-link" href="/inventory.html">📦 재고 현황</a>
+    <a class="nav-link" href="/import.html">📥 발주 입고</a>
+    <a class="nav-link" href="/sales.html">🛒 판매 입력</a>
+    <a class="nav-link" href="/prices.html">💰 판매가 관리</a>
+    <a class="nav-link" href="/bulk_import.html">📋 제품 일괄등록</a>
+  </div>
+  <div class="topbar-right">
+    <span class="last-updated" id="lastUpdated">로딩 중…</span>
+    <button class="refresh-btn" onclick="loadAll()">↻ 새로고침</button>
+    <a href="https://claude.ai/artifact/BYeqrU4RGJhQ8BzPhePBjP" target="_blank"
+       style="font-size:12px;font-weight:600;color:var(--accent);background:#eff6ff;border:1px solid var(--accent);padding:4px 11px;border-radius:6px;text-decoration:none;white-space:nowrap">📋 운영 가이드</a>
+  </div>
+</nav>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-label">공급사</div>
+      <select class="filter-select" id="vendorFilter" onchange="applyFilter()">
+        <option value="">전체</option>
+        <option value="BDL">BDL</option>
+        <option value="Connect">Connect</option>
+        <option value="Sleeman">Sleeman</option>
+      </select>
+    </div>
+    <div>
+      <div class="sidebar-label">카테고리</div>
+      <select class="filter-select" id="categoryFilter" onchange="applyFilter()">
+        <option value="">전체</option>
+        <option value="Alcohol">Alcohol</option>
+        <option value="Beer">Beer</option>
+        <option value="Wine">Wine</option>
+        <option value="Spirits">Spirits</option>
+      </select>
+    </div>
+    <hr class="sidebar-sep">
+    <div class="kpi-mini">
+      <div class="kpi-mini-val blue" id="sb-total">–</div>
+      <div class="kpi-mini-label">전체 제품</div>
+    </div>
+    <div class="kpi-mini">
+      <div class="kpi-mini-val orange" id="sb-lowstock">–</div>
+      <div class="kpi-mini-label">부족 품목</div>
+    </div>
+    <div class="kpi-mini">
+      <div class="kpi-mini-val green" id="sb-value">–</div>
+      <div class="kpi-mini-label">총 재고 가치</div>
+    </div>
+    <div class="kpi-mini">
+      <div class="kpi-mini-val red" id="sb-sales">–</div>
+      <div class="kpi-mini-label">판매 기록</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- KPI strip -->
+    <div class="kpi-strip">
+      <div class="kpi-cell">
+        <div class="kpi-num" id="kpi1">–</div>
+        <div class="kpi-title">전체 활성 제품</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-num orange" id="kpi2">–</div>
+        <div class="kpi-title">재고 부족 경고</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-num" id="kpi3">–</div>
+        <div class="kpi-title">총 재고 수량</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-num" id="kpi4">–</div>
+        <div class="kpi-title">총 입고 건수</div>
+      </div>
+      <div class="kpi-cell">
+        <div class="kpi-num" id="kpi5">–</div>
+        <div class="kpi-title">총 판매 건수</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Row 1: Stock bar + Sales by product -->
+      <div class="row2">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">제품별 현재 재고</span>
+            <span class="card-sub">Stock Level by Product</span>
+          </div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>현재 재고</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>최소 재고 기준</div>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap tall"><canvas id="stockChart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">판매 이동 현황</span>
+            <span class="card-sub">Movements by Type | 입고 / 판매</span>
+          </div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>입고 (in)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>판매 (out)</div>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap tall"><canvas id="movChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Monthly charts + Bottom 5 -->
+      <div class="row3">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">이번 달 매출금액</span>
+            <span class="card-sub" id="monthlySalesSub">—</span>
+          </div>
+          <div class="card-body" style="display:flex;align-items:baseline;gap:12px;padding:10px 16px 6px">
+            <div id="monthlySalesAmt" style="font-size:28px;font-weight:700;color:var(--orange)">$0</div>
+            <div id="monthlySalesQty" style="font-size:12px;color:var(--fg2)">판매 0건</div>
+          </div>
+          <div style="padding:0 14px 12px">
+            <div class="chart-wrap" style="height:148px"><canvas id="dailySalesChart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">이번 달 매입금액</span>
+            <span class="card-sub" id="monthlyPurchaseSub">—</span>
+          </div>
+          <div class="card-body" style="padding:12px 16px 4px">
+            <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px">
+              <div id="monthlyPurchaseAmt" style="font-size:28px;font-weight:700;color:var(--blue)">$0</div>
+              <div id="monthlyPurchaseQty" style="font-size:12px;color:var(--fg2)">입고 0건</div>
+            </div>
+            <table class="modal-table" style="margin-top:6px">
+              <thead><tr>
+                <th>공급사</th><th style="text-align:right">발주</th><th style="text-align:right">매입금액</th>
+              </tr></thead>
+              <tbody id="purchaseSupTable"><tr><td colspan="3" style="color:var(--fg3);text-align:center;padding:16px">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Monthly breakdown by year -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-head">
+          <span class="card-title">년도별 월 매입 / 매출 금액</span>
+          <span class="card-sub">Monthly Purchase vs Sales by Year</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 8px">
+          <div class="legend" style="margin:0">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>매입금액</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>매출금액</div>
+          </div>
+          <div id="yearTabs" style="display:flex;gap:4px"></div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap tall"><canvas id="annualChart"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const API = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+let allProducts = [], allMovements = [], allOrders = [], filteredProducts = [];
+let stockChart, movChart, monthlySalesChart, monthlyPurchaseChart, annualChart, dailySalesChart;
+
+const BLUE   = '#5b7ec5';
+const BLUE_L = '#8aaad8';
+const ORANGE = '#e8a325';
+const ORANGE_L = '#f0c06a';
+const GRID = 'rgba(0,0,0,.06)';
+
+async function loadAll() {
+  try {
+    [allProducts, allMovements, allOrders] = await Promise.all([
+      fetch(`${API}/api/products?limit=2000`).then(r => r.json()),
+      fetch(`${API}/api/stock/movements?limit=500`).then(r => r.json()),
+      fetch(`${API}/api/orders?status=received&limit=200`).then(r => r.json()),
+    ]);
+    applyFilter();
+    document.getElementById('lastUpdated').textContent =
+      '업데이트: ' + new Date().toLocaleTimeString('ko-KR');
+  } catch(e) {
+    document.getElementById('lastUpdated').textContent = '오류: ' + e.message;
+  }
+}
+
+function applyFilter() {
+  const vendor   = document.getElementById('vendorFilter').value;
+  const category = document.getElementById('categoryFilter').value;
+  filteredProducts = allProducts.filter(p =>
+    (!vendor   || p.vendor   === vendor) &&
+    (!category || p.category === category)
+  );
+  renderAll();
+}
+
+function renderAll() {
+  renderKpi();
+  renderStockChart();
+  renderMovChart();
+  renderMonthlyCharts();
+  renderDailySalesChart();
+  renderAnnualChart();
+}
+
+// ── KPI ────────────────────────────────────────────────
+function renderKpi() {
+  const lowCount  = filteredProducts.filter(p => p.stock <= p.min_stock).length;
+  const totalQty  = filteredProducts.reduce((s, p) => s + p.stock, 0);
+  const inCount   = allMovements.filter(m => m.type === 'in').length;
+  const outCount  = allMovements.filter(m => m.type === 'out').length;
+
+  document.getElementById('kpi1').textContent = filteredProducts.length;
+  document.getElementById('kpi2').textContent = lowCount;
+  document.getElementById('kpi3').textContent = totalQty;
+  document.getElementById('kpi4').textContent = inCount;
+  document.getElementById('kpi5').textContent = outCount;
+
+  document.getElementById('sb-total').textContent    = filteredProducts.length;
+  document.getElementById('sb-lowstock').textContent = lowCount;
+  const totalVal = filteredProducts.reduce((s, p) => s + p.stock * p.cost, 0);
+  document.getElementById('sb-value').textContent    = '$' + totalVal.toFixed(0);
+  document.getElementById('sb-sales').textContent    = outCount;
+}
+
+// ── Stock bar chart ────────────────────────────────────
+function renderStockChart() {
+  const top10   = [...filteredProducts].sort((a,b) => b.stock - a.stock).slice(0, 10);
+  const labels  = top10.map(p => p.name.length > 18 ? p.name.slice(0,17)+'…' : p.name);
+  const stocks  = top10.map(p => p.stock);
+  const mins    = top10.map(p => p.min_stock);
+
+  const ctx = document.getElementById('stockChart').getContext('2d');
+  if (stockChart) stockChart.destroy();
+  stockChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '현재 재고', data: stocks, backgroundColor: BLUE, borderRadius: 3, barPercentage: .7 },
+        { label: '최소 기준', data: mins,   backgroundColor: ORANGE, borderRadius: 3, barPercentage: .7 },
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index' } },
+      scales: {
+        x: { grid: { color: GRID }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#374151' } }
+      }
+    }
+  });
+}
+
+// ── Movement chart ────────────────────────────────────
+function renderMovChart() {
+  // group by product, show in vs out
+  const ctx = document.getElementById('movChart').getContext('2d');
+  if (movChart) movChart.destroy();
+
+  const productMap = {};
+  allMovements.forEach(m => {
+    const name = m.product_name || m.product_id;
+    if (!productMap[name]) productMap[name] = { in: 0, out: 0 };
+    if (m.type === 'in')  productMap[name].in  += m.quantity;
+    if (m.type === 'out') productMap[name].out += m.quantity;
+  });
+
+  // 이동 합계(in+out) 기준 상위 10개
+  const top10entries = Object.entries(productMap)
+    .sort((a,b) => (b[1].in + b[1].out) - (a[1].in + a[1].out))
+    .slice(0, 10);
+  const labels  = top10entries.map(([n]) => n.length > 16 ? n.slice(0,15)+'…' : n);
+  const inData  = top10entries.map(([,v]) => v.in);
+  const outData = top10entries.map(([,v]) => v.out);
+
+  movChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '입고', data: inData,  backgroundColor: BLUE_L, borderRadius: 3, barPercentage: .8 },
+        { label: '판매', data: outData, backgroundColor: ORANGE, borderRadius: 3, barPercentage: .8 },
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: GRID }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#374151' } }
+      }
+    }
+  });
+}
+
+// ── Monthly amount helper ──────────────────────────────
+function getMonthlyAmounts() {
+  // unit_cost가 0이면 현재 제품 단가로 대체
+  const costMap = {};
+  allProducts.forEach(p => { costMap[p.id] = p.cost || 0; });
+
+  const months = {};
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    months[key] = { in: 0, out: 0 };
+  }
+  allMovements.forEach(m => {
+    const d = new Date(m.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (months[key] !== undefined) {
+      const cost = m.unit_cost || costMap[m.product_id] || 0;
+      const amt  = m.quantity * cost;
+      if (m.type === 'in')  months[key].in  += amt;
+      if (m.type === 'out') months[key].out += amt;
+    }
+  });
+  return months;
+}
+
+// ── Monthly KPI (current month) ────────────────────────
+function renderMonthlyCharts() {
+  const costMap = {};
+  allProducts.forEach(p => { costMap[p.id] = p.cost || 0; });
+  const priceMap = {};
+  allProducts.forEach(p => { priceMap[p.id] = p.price || 0; });
+
+  const now = new Date();
+  const curKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const label  = `${now.getFullYear()}년 ${now.getMonth()+1}월`;
+
+  let salesAmt = 0, salesCnt = 0, purchAmt = 0, purchCnt = 0;
+  allMovements.forEach(m => {
+    const d = new Date(m.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (key !== curKey) return;
+    if (m.type === 'out') {
+      const salePrice = m.unit_cost || priceMap[m.product_id] || 0;
+      salesAmt += m.quantity * salePrice; salesCnt++;
+    }
+    if (m.type === 'in') {
+      const cost = m.unit_cost || costMap[m.product_id] || 0;
+      purchAmt += m.quantity * cost; purchCnt++;
+    }
+  });
+
+  // 공급사별 매입 — orders.total_amount 기준 (정확한 발주 금액)
+  const supMap = {};
+  let purchAmtFromOrders = 0, purchCntFromOrders = 0;
+  allOrders.forEach(o => {
+    const d = new Date(o.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (key !== curKey) return;
+    const sup = o.supplier || '기타';
+    const amt = o.total_amount || 0;
+    if (!supMap[sup]) supMap[sup] = { orders: 0, amt: 0, items: [] };
+    supMap[sup].orders += 1;
+    supMap[sup].amt += amt;
+    supMap[sup].items.push(o);
+    purchAmtFromOrders += amt;
+    purchCntFromOrders += 1;
+  });
+  const supRows = Object.entries(supMap).sort((a,b) => b[1].amt - a[1].amt);
+
+  document.getElementById('monthlySalesSub').textContent    = label;
+  document.getElementById('monthlySalesAmt').textContent    = '$' + salesAmt.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('monthlySalesQty').textContent    = `판매 ${salesCnt}건`;
+  document.getElementById('monthlyPurchaseSub').textContent = label;
+  document.getElementById('monthlyPurchaseAmt').textContent = '$' + purchAmtFromOrders.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('monthlyPurchaseQty').textContent = `발주 ${purchCntFromOrders}건`;
+
+  const tbody = document.getElementById('purchaseSupTable');
+  if (!supRows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--fg3);text-align:center;padding:16px">내역 없음</td></tr>';
+  } else {
+    // store orders per supplier for popup
+    window._supOrdersMap = {};
+    supRows.forEach(([sup, r]) => { window._supOrdersMap[sup] = r.items; });
+    tbody.innerHTML = supRows.map(([sup, r]) => {
+      const esc = sup.replace(/'/g,"\\'");
+      return `<tr style="cursor:pointer" onclick="showSupPopup(event,'${esc}')">
+        <td style="font-weight:600">${sup}</td>
+        <td style="text-align:right">${r.orders}건</td>
+        <td style="text-align:right">$${r.amt.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function showSupPopup(evt, sup) {
+  evt.stopPropagation();
+  const orders = (window._supOrdersMap || {})[sup] || [];
+  document.getElementById('supPopupTitle').textContent = sup + ' 발주 내역';
+  document.getElementById('supPopupBody').innerHTML = orders.length
+    ? orders.map(o => {
+        const date = o.order_date || o.delivery_date || o.created_at.slice(0,10);
+        const no   = o.order_no || '—';
+        const amt  = (o.total_amount || 0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+        return `<tr><td>${date}</td><td style="color:var(--fg3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${no}">${no}</td><td>$${amt}</td></tr>`;
+      }).join('')
+    : '<tr><td colspan="3" style="text-align:center;color:var(--fg3);padding:12px">내역 없음</td></tr>';
+
+  const popup = document.getElementById('supPopup');
+  popup.classList.add('open');
+
+  // position near the clicked row
+  const rect = evt.currentTarget.getBoundingClientRect();
+  const pw = 300, ph = 280;
+  let left = rect.right + 8;
+  let top  = rect.top;
+  if (left + pw > window.innerWidth - 8) left = rect.left - pw - 8;
+  if (top  + ph > window.innerHeight - 8) top  = window.innerHeight - ph - 8;
+  popup.style.left = Math.max(8, left) + 'px';
+  popup.style.top  = Math.max(8, top)  + 'px';
+}
+
+function closeSupPopup() {
+  document.getElementById('supPopup').classList.remove('open');
+}
+
+// close popup when clicking outside
+document.addEventListener('click', e => {
+  const p = document.getElementById('supPopup');
+  if (p && p.classList.contains('open') && !p.contains(e.target)) closeSupPopup();
+});
+
+// ── Daily sales chart (current month) ─────────────────
+function renderDailySalesChart() {
+  const priceMap = {};
+  allProducts.forEach(p => { priceMap[p.id] = p.price || 0; });
+
+  const now = new Date();
+  const year  = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const monthStr    = `${year}-${String(month).padStart(2,'0')}`;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const today       = now.getDate();
+
+  const dailyRev = new Array(daysInMonth).fill(0);
+
+  allMovements.forEach(m => {
+    if (m.type !== 'out') return;
+    // order_no = sale_date string (e.g. "2026-11-14"), fallback to created_at
+    const dateStr = m.order_no || (m.created_at ? m.created_at.slice(0, 10) : null);
+    if (!dateStr || !dateStr.startsWith(monthStr)) return;
+    const dayIdx = parseInt(dateStr.slice(8, 10)) - 1;
+    if (dayIdx < 0 || dayIdx >= daysInMonth) return;
+    dailyRev[dayIdx] += m.quantity * (m.unit_cost || priceMap[m.product_id] || 0);
+  });
+
+  const labels = Array.from({length: daysInMonth}, (_, i) => String(i + 1));
+  const values = dailyRev.map(v => Math.round(v * 100) / 100);
+
+  const ctx = document.getElementById('dailySalesChart')?.getContext('2d');
+  if (!ctx) return;
+  if (dailySalesChart) { dailySalesChart.destroy(); dailySalesChart = null; }
+
+  dailySalesChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '일별 매출',
+        data: values,
+        backgroundColor: values.map((v, i) =>
+          i + 1 === today ? ORANGE : v > 0 ? ORANGE_L : 'rgba(232,163,37,0.10)'),
+        borderColor: values.map((v, i) =>
+          i + 1 === today ? ORANGE : v > 0 ? ORANGE_L : 'rgba(232,163,37,0.15)'),
+        borderWidth: 1,
+        borderRadius: 2,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `$${c.raw.toFixed(2)}` } }
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const day = elements[0].index + 1;
+        const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        showDayDetail(dateStr);
+      },
+      onHover: (evt, elements) => {
+        evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { size: 9 }, color: '#9ca3af',
+            callback: (_, idx) => (idx % 7 === 0 || idx + 1 === today) ? labels[idx] : ''
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: GRID },
+          ticks: {
+            font: { size: 9 }, color: '#9ca3af',
+            callback: v => v === 0 ? '' : (v >= 1000 ? '$' + Math.round(v / 100) / 10 + 'k' : '$' + v)
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Annual monthly chart ───────────────────────────────
+let _selectedYear = null;
+
+function renderAnnualChart() {
+  const costMap = {};
+  allProducts.forEach(p => { costMap[p.id] = p.cost || 0; });
+  const priceMap = {};
+  allProducts.forEach(p => { priceMap[p.id] = p.price || 0; });
+
+  // 데이터가 있는 연도 목록
+  const yearSet = new Set();
+  allMovements.forEach(m => yearSet.add(new Date(m.created_at).getFullYear()));
+  const years = [...yearSet].sort();
+  if (!years.length) years.push(new Date().getFullYear());
+
+  if (!_selectedYear || !years.includes(_selectedYear)) _selectedYear = years[years.length - 1];
+
+  // 연도 탭 렌더
+  const tabsEl = document.getElementById('yearTabs');
+  tabsEl.innerHTML = years.map(y => `
+    <button onclick="selectYear(${y})" style="
+      padding:4px 12px;border-radius:6px;border:1px solid var(--border);
+      font-size:12px;font-weight:600;cursor:pointer;
+      background:${y===_selectedYear?'var(--accent)':'var(--surface)'};
+      color:${y===_selectedYear?'#fff':'var(--fg2)'};
+    ">${y}년</button>`).join('');
+
+  // 선택 연도의 월별 집계
+  const MONTHS = Array.from({length:12},(_,i)=>i+1);
+  const inData  = new Array(12).fill(0);
+  const outData = new Array(12).fill(0);
+
+  // 매입: orders.total_amount 기준 (이번 달 매입금액 카드와 동일 방식)
+  allOrders.forEach(o => {
+    const d = new Date(o.created_at);
+    if (d.getFullYear() !== _selectedYear) return;
+    inData[d.getMonth()] += o.total_amount || 0;
+  });
+
+  // 매출: movements out + priceMap 기준
+  allMovements.forEach(m => {
+    if (m.type !== 'out') return;
+    const d = new Date(m.created_at);
+    if (d.getFullYear() !== _selectedYear) return;
+    outData[d.getMonth()] += m.quantity * (m.unit_cost || priceMap[m.product_id] || 0);
+  });
+
+  const labels = MONTHS.map(m => m + '월');
+
+  const ctx = document.getElementById('annualChart').getContext('2d');
+  if (annualChart) annualChart.destroy();
+  annualChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '매입금액', data: inData.map(v=>+v.toFixed(0)),  backgroundColor: BLUE,   borderRadius: 4, barPercentage: .45 },
+        { label: '매출금액', data: outData.map(v=>+v.toFixed(0)), backgroundColor: ORANGE, borderRadius: 4, barPercentage: .45 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => c.dataset.label + ': $' + c.parsed.y.toLocaleString() } }
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const el = elements[0];
+        const month = el.index + 1;
+        if (el.datasetIndex === 0) showMonthPurchase(_selectedYear, month);
+        else showMonthDetail(_selectedYear, month);
+      },
+      onHover: (evt, elements) => {
+        evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { grid: { color: GRID }, ticks: { font: { size: 11 }, callback: v => '$' + v.toLocaleString() } }
+      }
+    }
+  });
+}
+
+function showMonthDetail(year, month) {
+  const monthStr = `${year}-${String(month).padStart(2,'0')}`;
+  const priceMap = {};
+  allProducts.forEach(p => { priceMap[p.id] = p.price || 0; });
+  const costMapM = {};
+  allProducts.forEach(p => { costMapM[p.id] = p.cost || 0; });
+  const nameMap = {};
+  allProducts.forEach(p => { nameMap[p.id] = p.name; });
+  const barcodeMap = {};
+  allProducts.forEach(p => { barcodeMap[p.id] = p.barcode || ''; });
+
+  // group out movements by product
+  const grouped = {};
+  allMovements.forEach(m => {
+    if (m.type !== 'out') return;
+    const dateStr = m.order_no || (m.created_at ? m.created_at.slice(0,10) : '');
+    if (!dateStr.startsWith(monthStr)) return;
+    const pid = m.product_id;
+    const unitPrice = m.unit_cost || priceMap[pid] || 0;
+    const amt = m.quantity * unitPrice;
+    if (!grouped[pid]) grouped[pid] = { pid, name: nameMap[pid] || m.product_name || `#${pid}`, qty: 0, amt: 0, unitPrice, cost: costMapM[pid] || 0 };
+    grouped[pid].qty += m.quantity;
+    grouped[pid].amt += amt;
+  });
+
+  const rows = Object.values(grouped).sort((a,b) => b.amt - a.amt);
+  const totalAmt = rows.reduce((s,r) => s + r.amt, 0);
+  const totalCnt = rows.reduce((s,r) => s + r.qty, 0);
+
+  document.getElementById('modalTitle').textContent = `${year}년 ${month}월 매출 상세`;
+  document.getElementById('modalCnt').textContent = totalCnt + '개';
+  document.getElementById('modalAmt').textContent = '$' + totalAmt.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('modalEditBar').style.display = 'none';
+
+  document.getElementById('modalHead').innerHTML = `<tr>
+    <th style="text-align:left;width:110px">바코드</th>
+    <th style="text-align:left">제품명</th>
+    <th style="text-align:right;width:40px">수량</th>
+    <th style="text-align:right;width:62px">단가</th>
+    <th style="text-align:right;width:62px">원가</th>
+    <th style="text-align:right;width:80px">매출금액</th>
+  </tr>`;
+
+  document.getElementById('modalBody').innerHTML = rows.length
+    ? rows.map(r => {
+        const barcode = barcodeMap[r.pid] || '—';
+        const escapedName = r.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return `<tr>
+          <td style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--fg3);text-align:left">${barcode}</td>
+          <td style="max-width:0;min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration-line:underline;text-decoration-style:dotted;text-decoration-color:var(--fg3);text-align:left"
+              title="클릭하여 제품명 수정: ${r.name}"
+              onclick="editProductName(${r.pid},'${escapedName}',this)">${r.name}</td>
+          <td style="text-align:right">${r.qty}</td>
+          <td style="text-align:right;font-size:11px;color:var(--fg2)">$${r.unitPrice.toFixed(2)}</td>
+          <td style="text-align:right;font-size:11px;color:var(--fg3)">$${r.cost.toFixed(2)}</td>
+          <td style="text-align:right">$${r.amt.toFixed(2)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:var(--fg3);padding:20px">판매 내역 없음</td></tr>';
+
+  document.getElementById('monthModal').classList.add('open');
+}
+
+let _dayDetailDate = null;
+
+async function showDayDetail(dateStr) {
+  _dayDetailDate = dateStr;
+  const [y,mo,d] = dateStr.split('-');
+  document.getElementById('modalTitle').textContent = `${y}년 ${+mo}월 ${+d}일 판매 상세`;
+  document.getElementById('modalCnt').textContent = '…';
+  document.getElementById('modalAmt').textContent = '…';
+  document.getElementById('modalBody').innerHTML = '';
+  document.getElementById('monthModal').classList.add('open');
+  await _loadDayDetail(dateStr);
+}
+
+async function _loadDayDetail(dateStr) {
+  const priceMap = {};
+  allProducts.forEach(p => { priceMap[p.id] = p.price || 0; });
+  const costMap2 = {};
+  allProducts.forEach(p => { costMap2[p.id] = p.cost || 0; });
+  const nameMap  = {};
+  allProducts.forEach(p => { nameMap[p.id] = p.name; });
+  const barcodeMap = {};
+  allProducts.forEach(p => { barcodeMap[p.id] = p.barcode || ''; });
+
+  // API에서 해당 날짜 out 이동 가져오기 (order_no 기준)
+  let movements = [];
+  try {
+    const all = await fetch(`${API}/api/stock/movements?limit=500`).then(r => r.json());
+    movements = all.filter(m => {
+      if (m.type !== 'out') return false;
+      const d = m.order_no || (m.created_at ? m.created_at.slice(0,10) : '');
+      return d === dateStr;
+    });
+  } catch { movements = []; }
+
+  const totalAmt = movements.reduce((s,m) => s + m.quantity * (m.unit_cost || priceMap[m.product_id] || 0), 0);
+  const totalCnt = movements.reduce((s,m) => s + m.quantity, 0);
+
+  document.getElementById('modalCnt').textContent = totalCnt + '개';
+  document.getElementById('modalAmt').textContent = '$' + totalAmt.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // 편집 바 표시
+  const editBar = document.getElementById('modalEditBar');
+  editBar.style.display = movements.length ? '' : 'none';
+  document.getElementById('modalEditNote').textContent = '';
+
+  // 테이블 헤더
+  document.getElementById('modalHead').innerHTML = `<tr>
+    <th style="text-align:left;width:100px">바코드</th>
+    <th style="text-align:left">제품명</th>
+    <th style="text-align:right;width:40px">수량</th>
+    <th style="text-align:right;width:62px">단가</th>
+    <th style="text-align:right;width:62px">원가</th>
+    <th style="text-align:right;width:70px">매출</th>
+    <th style="width:52px"></th>
+  </tr>`;
+
+  document.getElementById('modalBody').innerHTML = movements.length
+    ? movements.sort((a,b) => {
+        const na = nameMap[a.product_id] || a.product_name || '';
+        const nb = nameMap[b.product_id] || b.product_name || '';
+        return na.localeCompare(nb);
+      }).map(m => {
+        const name    = nameMap[m.product_id] || m.product_name || `#${m.product_id}`;
+        const barcode = barcodeMap[m.product_id] || '—';
+        const unitPrice = m.unit_cost || priceMap[m.product_id] || 0;
+        const unitCost  = costMap2[m.product_id] || 0;
+        const amt       = m.quantity * unitPrice;
+        return `<tr id="mvrow-${m.id}">
+          <td style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--fg3);text-align:left">${barcode}</td>
+          <td style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration-style:dotted;text-decoration-line:underline;text-decoration-color:var(--fg3)"
+              title="클릭하여 제품명 수정: ${name}"
+              onclick="editProductName(${m.product_id},'${name.replace(/'/g,"\\'")}',this)">${name}</td>
+          <td style="text-align:right" id="mvqty-${m.id}">${m.quantity}</td>
+          <td style="text-align:right;font-size:11px;color:var(--fg2)">$${unitPrice.toFixed(2)}</td>
+          <td style="text-align:right;font-size:11px;color:var(--fg3)">$${unitCost.toFixed(2)}</td>
+          <td style="text-align:right;font-size:11px;color:var(--fg2)">$${amt.toFixed(2)}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button onclick="editMovQty(${m.id},${m.quantity})"
+              style="font-size:10px;width:22px;height:22px;border-radius:4px;border:1px solid var(--border);cursor:pointer;background:var(--surface);padding:0;margin-right:2px">✏️</button>
+            <button onclick="deleteMovement(${m.id},'${dateStr}')"
+              style="font-size:10px;width:22px;height:22px;border-radius:4px;border:1px solid var(--border);cursor:pointer;background:var(--surface);color:var(--red);padding:0">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="7" style="text-align:center;color:var(--fg3);padding:20px">판매 내역 없음</td></tr>';
+}
+
+async function editProductName(productId, currentName, tdEl) {
+  const newName = prompt(`제품명 수정 (현재: ${currentName})`, currentName);
+  if (newName === null || newName.trim() === '' || newName.trim() === currentName) return;
+  try {
+    const r = await fetch(`${API}/api/products/${productId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    tdEl.textContent = newName.trim();
+    tdEl.title = `클릭하여 제품명 수정: ${newName.trim()}`;
+    tdEl.setAttribute('onclick', `editProductName(${productId},'${newName.trim().replace(/'/g,"\\'")}',this)`);
+    document.getElementById('modalEditNote').textContent = '제품명 저장됨';
+    // allProducts 로컬 캐시도 업데이트
+    const cached = allProducts.find(p => p.id === productId);
+    if (cached) cached.name = newName.trim();
+  } catch(e) {
+    alert('수정 실패: ' + e.message);
+  }
+}
+
+async function editMovQty(movId, currentQty) {
+  const newQty = prompt(`수량 수정 (현재: ${currentQty})`, currentQty);
+  if (newQty === null) return;
+  const qty = parseInt(newQty);
+  if (!qty || qty <= 0) { alert('유효한 수량을 입력하세요'); return; }
+  try {
+    const r = await fetch(`${API}/api/stock/movements/${movId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity: qty }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    document.getElementById('modalEditNote').textContent = '저장됐습니다';
+    await loadAll();
+    await _loadDayDetail(_dayDetailDate);
+  } catch(e) {
+    alert('수정 실패: ' + e.message);
+  }
+}
+
+async function deleteMovement(movId, dateStr) {
+  if (!confirm('이 판매 내역을 삭제하시겠습니까?')) return;
+  try {
+    const r = await fetch(`${API}/api/stock/movements/${movId}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(await r.text());
+    document.getElementById('modalEditNote').textContent = '삭제됐습니다';
+    await loadAll();
+    await _loadDayDetail(dateStr);
+  } catch(e) {
+    alert('삭제 실패: ' + e.message);
+  }
+}
+
+async function deleteDaySales() {
+  if (!_dayDetailDate) return;
+  if (!confirm(`${_dayDetailDate} 전체 판매 내역을 삭제하시겠습니까?`)) return;
+  try {
+    const r = await fetch(`${API}/api/stock/sales/${_dayDetailDate}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await loadAll();
+    await _loadDayDetail(_dayDetailDate);
+  } catch(e) {
+    alert('삭제 실패: ' + e.message);
+  }
+}
+
+function showMonthPurchase(year, month) {
+  const monthStr = `${year}-${String(month).padStart(2,'0')}`;
+  const costMap = {};
+  allProducts.forEach(p => { costMap[p.id] = p.cost || 0; });
+
+  // group in movements by supplier
+  const grouped = {};
+  allMovements.forEach(m => {
+    if (m.type !== 'in') return;
+    const d = new Date(m.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (key !== monthStr) return;
+    const sup = m.supplier || '기타';
+    const amt = m.quantity * (m.unit_cost || costMap[m.product_id] || 0);
+    if (!grouped[sup]) grouped[sup] = { qty: 0, amt: 0 };
+    grouped[sup].qty += m.quantity;
+    grouped[sup].amt += amt;
+  });
+
+  const rows = Object.entries(grouped).sort((a,b) => b[1].amt - a[1].amt);
+  const totalAmt = rows.reduce((s,[,r]) => s + r.amt, 0);
+  const totalCnt = rows.reduce((s,[,r]) => s + r.qty, 0);
+
+  document.getElementById('modalTitle').textContent = `${year}년 ${month}월 매입 상세 (공급사별)`;
+  document.getElementById('modalCnt').textContent = totalCnt + '개';
+  document.getElementById('modalAmt').textContent = '$' + totalAmt.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('modalBody').innerHTML = rows.length
+    ? rows.map(([sup, r]) => `<tr>
+        <td style="font-weight:600">${sup}</td>
+        <td>${r.qty}</td>
+        <td>$${r.amt.toFixed(2)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="3" style="text-align:center;color:var(--fg3);padding:20px">매입 내역 없음</td></tr>';
+
+  document.getElementById('monthModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('monthModal').classList.remove('open');
+}
+
+function selectYear(y) {
+  _selectedYear = y;
+  renderAnnualChart();
+}
+
+// ── Bottom 5 ──────────────────────────────────────────
+function renderBot5() {
+  const sorted = [...filteredProducts].sort((a, b) => a.stock - b.stock);
+  const bot5   = sorted.slice(0, 5);
+  const maxStk = Math.max(...filteredProducts.map(p => p.stock), 1);
+
+  document.getElementById('bot5Body').innerHTML = bot5.map(p => {
+    const isLow = p.stock <= p.min_stock;
+    return `<tr>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</td>
+      <td style="text-align:right">
+        <div class="bar-inline">
+          <div class="bar-track"><div class="bar-fill" style="width:${p.stock/maxStk*100}%;background:${isLow?'var(--orange)':'var(--blue)'}"></div></div>
+          <span style="font-weight:600;min-width:28px;text-align:right;color:${isLow?'var(--orange)':'inherit'}">${p.stock}</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── BroadcastChannel live refresh ─────────────────────
+new BroadcastChannel('inventory-update').onmessage = () => loadAll();
+
+loadAll();
+</script>
