@@ -255,6 +255,20 @@ body {
 .dept-03 { background: var(--green-bg); color: var(--green); }
 .low-stock { color: var(--red); font-weight: 700; }
 
+/* Dept filter buttons */
+.dept-filters { display:flex; gap:4px; align-items:center; }
+.dept-filter-btn {
+  padding:4px 11px; border-radius:6px; font-size:12px; font-weight:700;
+  font-family:'IBM Plex Mono',monospace;
+  border:1px solid var(--border); background:var(--surface2); color:var(--fg2);
+  cursor:pointer; transition:all .1s; white-space:nowrap;
+}
+.dept-filter-btn:hover { border-color:var(--fg2); color:var(--fg); }
+.dept-filter-btn[data-dept=""].active { background:var(--surface); color:var(--fg); border-color:var(--fg2); }
+.dept-filter-btn[data-dept="01"].active { background:var(--accent-bg); color:var(--accent); border-color:var(--accent); }
+.dept-filter-btn[data-dept="21"].active { background:var(--yellow-bg); color:var(--yellow); border-color:var(--yellow); }
+.dept-filter-btn[data-dept="03"].active { background:var(--green-bg); color:var(--green); border-color:var(--green); }
+
 /* ── 인라인 편집 ── */
 .editable-cell {
   cursor: text;
@@ -398,9 +412,16 @@ body {
     <div class="section-head">
       <h2>📦 재고 현황</h2>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <!-- Dept 필터 버튼 -->
+        <div class="dept-filters">
+          <button class="dept-filter-btn active" data-dept="" onclick="filterDept('')">전체</button>
+          <button class="dept-filter-btn" data-dept="01" onclick="filterDept('01')">01</button>
+          <button class="dept-filter-btn" data-dept="21" onclick="filterDept('21')">21</button>
+          <button class="dept-filter-btn" data-dept="03" onclick="filterDept('03')">03</button>
+        </div>
         <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 10px;min-width:180px">
           <span style="color:var(--fg3);font-size:13px">🔍</span>
-          <input id="invSearch" type="text" placeholder="제품명, UPC 또는 DEPT(01·21·03)…"
+          <input id="invSearch" type="text" placeholder="제품명, UPC…"
             style="border:none;outline:none;background:transparent;color:var(--fg);font-size:12px;width:100%"
             oninput="renderProducts(_lastProducts)">
           <button id="invSearchClear" onclick="document.getElementById('invSearch').value='';renderProducts(_lastProducts)"
@@ -534,6 +555,15 @@ function renderOrders(orders) {
 
 const DEPT_MAP = { Connect: '01', BDL: '21', Sleeman: '03' };
 let _lastProducts = [];
+let _activeDept = '';
+
+function filterDept(dept) {
+  _activeDept = dept;
+  document.querySelectorAll('.dept-filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.dept === dept);
+  });
+  renderProducts(_lastProducts);
+}
 
 function renderProducts(products) {
   _lastProducts = products;
@@ -543,7 +573,7 @@ function renderProducts(products) {
   const q = (document.getElementById('invSearch')?.value || '').trim().toLowerCase();
   const clearBtn = document.getElementById('invSearchClear');
   if (clearBtn) clearBtn.style.display = q ? '' : 'none';
-  const filtered = q
+  const qFiltered = q
     ? products.filter(p =>
         p.name.toLowerCase().includes(q) ||
         (p.barcode || '').toLowerCase().includes(q) ||
@@ -552,8 +582,13 @@ function renderProducts(products) {
       )
     : products;
 
+  // Dept 필터
+  const filtered = _activeDept
+    ? qFiltered.filter(p => (DEPT_MAP[p.vendor] || '') === _activeDept)
+    : qFiltered;
+
   document.getElementById('productCount').textContent =
-    q ? `${filtered.length} / ${products.length}개` : `${products.length}개 제품`;
+    (q || _activeDept) ? `${filtered.length} / ${products.length}개` : `${products.length}개 제품`;
 
   if (!filtered.length) {
     tbody.innerHTML = q
