@@ -593,7 +593,11 @@ function showMovDetail(productName, type) {
   const rows = allMovements.filter(m => {
     const name = m.product_name || m.product_id;
     return name === productName && m.type === type;
-  }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }).sort((a, b) => {
+    const da = (a.order_no || a.created_at || '');
+    const db = (b.order_no || b.created_at || '');
+    return da.localeCompare(db);
+  });
 
   let totalQty = 0, totalAmt = 0;
   rows.forEach(m => {
