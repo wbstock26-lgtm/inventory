@@ -606,18 +606,19 @@ function showMovDetail(productName, type) {
   const editBar = document.getElementById('modalEditBar');
   if (editBar) editBar.style.display = 'none';
 
-  document.getElementById('modalHead').innerHTML = `<tr><th>날짜</th><th>수량</th><th>단가</th><th>금액</th><th>메모</th></tr>`;
+  document.getElementById('modalHead').innerHTML = `<tr><th>날짜</th><th>수량</th><th>단가</th><th>금액</th></tr>`;
 
   const tbody = document.getElementById('modalBody');
   tbody.innerHTML = '';
   rows.forEach(m => {
-    const date = m.created_at ? m.created_at.slice(0, 10) : '—';
+    const note = m.note || '';
+    const noteDate = note.match(/\d{4}-\d{2}-\d{2}/);
+    const date = noteDate ? noteDate[0] : (m.created_at ? m.created_at.slice(0, 10) : '—');
     const qty = m.quantity;
     const cost = m.unit_cost || 0;
     const amt = qty * cost;
-    const note = m.note || '';
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${date}</td><td>${qty.toLocaleString()}</td><td>$${cost.toFixed(2)}</td><td>$${amt.toFixed(2)}</td><td>${note}</td>`;
+    tr.innerHTML = `<td>${date}</td><td>${qty.toLocaleString()}</td><td>$${cost.toFixed(2)}</td><td>$${amt.toFixed(2)}</td>`;
     tbody.appendChild(tr);
   });
 
