@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from ..database import get_db
 from .. import models, schemas
-from ..crud import get_current_stock
+from ..crud import get_current_stock, get_all_stocks_bulk
 
 router = APIRouter()
 
@@ -380,9 +380,10 @@ def delete_movement(movement_id: int, db: Session = Depends(get_db)):
 def get_low_stock(db: Session = Depends(get_db)):
     """최소 재고 미달 품목"""
     products = db.query(models.Product).filter(models.Product.is_active == True).all()
+    stock_map = get_all_stocks_bulk(db)
     result = []
     for p in products:
-        stock = get_current_stock(db, p.id)
+        stock = stock_map.get(p.id, 0)
         if stock <= p.min_stock:
             result.append({
                 "id": p.id, "barcode": p.barcode, "name": p.name,

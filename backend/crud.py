@@ -1,12 +1,12 @@
 """공통 DB 유틸리티 — 재고 계산 및 제품 검색"""
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
-from typing import Optional
+from typing import Optional, Dict
 from . import models
 
 
 def get_current_stock(db: Session, product_id: int) -> int:
-    """stock_movements 합산으로 현재 재고 계산"""
+    """단일 제품 현재 재고 계산 (stock_movements 합산)"""
     result = db.query(func.sum(
         case(
             (models.StockMovement.type == "out", -models.StockMovement.quantity),
@@ -14,6 +14,20 @@ def get_current_stock(db: Session, product_id: int) -> int:
         )
     )).filter(models.StockMovement.product_id == product_id).scalar()
     return result or 0
+
+
+def get_all_stocks_bulk(db: Session) -> Dict[int, int]:
+    """전체 제품 재고를 1번 쿼리로 계산 (N+1 대신 사용)"""
+    rows = db.query(
+        models.StockMovement.product_id,
+        func.sum(
+            case(
+                (models.StockMovement.type == "out", -models.StockMovement.quantity),
+                else_=models.StockMovement.quantity,
+            )
+        ).label("stock"),
+    ).group_by(models.StockMovement.product_id).all()
+    return {row.product_id: (row.stock or 0) for row in rows}
 
 
 def find_product(

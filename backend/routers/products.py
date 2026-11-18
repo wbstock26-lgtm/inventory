@@ -4,7 +4,7 @@ from typing import Optional, List
 
 from ..database import get_db
 from .. import models, schemas
-from ..crud import get_current_stock, find_product
+from ..crud import get_current_stock, get_all_stocks_bulk, find_product
 
 router = APIRouter()
 
@@ -25,9 +25,12 @@ def list_products(
     if category:
         query = query.filter(models.Product.category == category)
 
+    products = query.all()
+    # 전체 재고를 1번 쿼리로 계산 (N+1 방지)
+    stock_map = get_all_stocks_bulk(db)
     result = []
-    for p in query.all():
-        stock = get_current_stock(db, p.id)
+    for p in products:
+        stock = stock_map.get(p.id, 0)
         if low_stock and stock > p.min_stock:
             continue
         out = schemas.ProductOut.model_validate(p)
@@ -61,9 +64,10 @@ def search_products(
 def stock_valuation(db: Session = Depends(get_db)):
     """부서별 재고 평가액 (BackOffice Stock Valuation by Department 대응)"""
     products = db.query(models.Product).filter(models.Product.is_active == True).all()
+    stock_map = get_all_stocks_bulk(db)
     items, total = [], 0.0
     for p in products:
-        stock = get_current_stock(db, p.id)
+        stock = stock_map.get(p.id, 0)
         value = round(stock * p.cost, 2)
         total += value
         items.append({

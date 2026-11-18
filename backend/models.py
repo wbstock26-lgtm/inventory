@@ -29,7 +29,7 @@ class StockMovement(Base):
     __tablename__ = "stock_movements"
 
     id           = Column(Integer, primary_key=True, index=True)
-    product_id   = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product_id   = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
     type         = Column(String(10), nullable=False)   # in / out / adj
     quantity     = Column(Integer, nullable=False)
     stock_before = Column(Integer, nullable=False)

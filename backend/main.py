@@ -6,6 +6,7 @@ import os
 import subprocess
 from datetime import datetime
 
+from sqlalchemy import text
 from .database import engine
 from . import models
 from .routers import products, stock, orders, sku_map, ocr
@@ -28,9 +29,28 @@ def _git_sync_db():
         print(f"[DB 동기화] 실패: {e}")
 
 
+def _ensure_indexes():
+    """기존 DB에 성능 인덱스 추가 (없으면 생성)"""
+    with engine.connect() as conn:
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_sm_product_id ON stock_movements(product_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_sm_type ON stock_movements(type)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_sm_order_no ON stock_movements(order_no)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_sm_created_at ON stock_movements(created_at)"
+        ))
+        conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=engine)
+    _ensure_indexes()
     yield
     _git_sync_db()  # 서버 종료 시 자동 동기화
 
