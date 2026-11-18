@@ -492,11 +492,12 @@ body {
             style="border:none;background:none;cursor:pointer;color:var(--fg3);font-size:14px;padding:0;line-height:1;display:none">✕</button>
         </div>
         <span style="font-size:12px;color:var(--fg2)" id="productCount">—개 제품</span>
-        <select id="invSort" onchange="renderProducts(_lastProducts)" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--fg);cursor:pointer">
+        <select id="invSort" onchange="onSortChange()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--fg);cursor:pointer">
           <option value="dept">Dept 순</option>
           <option value="stock-desc">재고 많은 순</option>
           <option value="stock-asc">재고 적은 순</option>
-          <option value="name">제품명 순</option>
+          <option value="name">제품명 ↑</option>
+          <option value="name-desc">제품명 ↓</option>
           <option value="vendor">공급사 순</option>
         </select>
       </div>
@@ -507,7 +508,7 @@ body {
           <tr>
             <th>Dept</th>
             <th>UPC</th>
-            <th>제품명</th>
+            <th id="thName" onclick="toggleNameSort()" style="cursor:pointer;user-select:none">제품명 <span id="thNameArrow"></span></th>
             <th style="text-align:right">수량 ✏️</th>
             <th style="text-align:right">단가</th>
             <th style="text-align:right">Total</th>
@@ -698,6 +699,16 @@ const DEPT_MAP = { Connect: '01', BDL: '21', Sleeman: '03' };
 let _lastProducts = [];
 let _activeDept = '';
 
+function onSortChange() {
+  renderProducts(_lastProducts);
+}
+
+function toggleNameSort() {
+  const sel = document.getElementById('invSort');
+  sel.value = sel.value === 'name' ? 'name-desc' : 'name';
+  renderProducts(_lastProducts);
+}
+
 function filterDept(dept) {
   _activeDept = dept;
   document.querySelectorAll('.dept-filter-btn').forEach(b => {
@@ -742,12 +753,16 @@ function renderProducts(products) {
   const sorted = [...filtered].sort((a,b) => {
     if (sort === 'stock-desc') return b.stock - a.stock;
     if (sort === 'stock-asc')  return a.stock - b.stock;
-    if (sort === 'name')   return a.name.localeCompare(b.name);
+    if (sort === 'name')      return a.name.localeCompare(b.name);
+    if (sort === 'name-desc') return b.name.localeCompare(a.name);
     if (sort === 'vendor') return (a.vendor||'').localeCompare(b.vendor||'');
     // dept (default)
     const da = DEPT_MAP[a.vendor] || '99', db = DEPT_MAP[b.vendor] || '99';
     return da !== db ? da.localeCompare(db) : a.name.localeCompare(b.name);
   });
+  // 헤더 화살표 동기화
+  const arrow = document.getElementById('thNameArrow');
+  if (arrow) arrow.textContent = sort === 'name' ? '▲' : sort === 'name-desc' ? '▼' : '';
 
 
   tbody.innerHTML = sorted.map(p => {
