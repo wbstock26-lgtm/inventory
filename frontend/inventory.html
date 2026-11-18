@@ -963,7 +963,7 @@ function startEdit(span, productId, field, currentVal) {
   const isStock  = field === 'stock';
   const isExpr   = field === 'cost' || field === 'price';
   const isName   = field === 'name';
-  const rawVal   = isName ? span.textContent.trim() : String(currentVal).replace(/^\$/, '');
+  const rawVal   = (isName || isStock) ? span.textContent.trim() : String(currentVal).replace(/^\$/, '');
 
   const input = document.createElement('input');
   input.className = 'edit-input';
