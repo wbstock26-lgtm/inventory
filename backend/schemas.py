@@ -70,7 +70,7 @@ class MovementOut(BaseModel):
     quantity:     int
     stock_before: int
     stock_after:  int
-    unit_cost:    float
+    unit_cost:    float = 0.0
     note:         Optional[str] = None
     supplier:     Optional[str] = None
     order_no:     Optional[str] = None
