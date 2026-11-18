@@ -548,9 +548,9 @@ function renderMovChart() {
     if (m.type === 'out') productMap[name].out += m.quantity;
   });
 
-  // 이동 합계(in+out) 기준 상위 10개
+  // 판매(out) 기준 상위 10개
   const top10entries = Object.entries(productMap)
-    .sort((a,b) => (b[1].in + b[1].out) - (a[1].in + a[1].out))
+    .sort((a,b) => b[1].out - a[1].out)
     .slice(0, 10);
   const fullNames = top10entries.map(([n]) => n);
   const labels    = fullNames.map(n => n.length > 16 ? n.slice(0,15)+'…' : n);
