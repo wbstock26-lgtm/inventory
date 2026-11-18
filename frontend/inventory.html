@@ -984,7 +984,7 @@ function startEdit(span, productId, field, currentVal) {
     if (e.key === 'Escape') { cancelEdit(); }
   });
   input.addEventListener('blur', () => {
-    setTimeout(() => { if (_editActive) saveEdit(input, productId, field, originalHtml); }, 100);
+    setTimeout(() => { if (_editActive && input.isConnected) saveEdit(input, productId, field, originalHtml); }, 100);
   });
 }
 
