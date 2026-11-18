@@ -333,7 +333,7 @@ tbody tr:hover td { background: var(--bg); }
         <div class="kpi-num" id="kpi1">–</div>
         <div class="kpi-title">전체 활성 제품</div>
       </div>
-      <div class="kpi-cell">
+      <div class="kpi-cell" onclick="showLowStockModal()" style="cursor:pointer">
         <div class="kpi-num orange" id="kpi2">–</div>
         <div class="kpi-title">재고 부족 경고</div>
       </div>
@@ -502,6 +502,42 @@ function renderKpi() {
   const totalVal = filteredProducts.reduce((s, p) => s + p.stock * p.cost, 0);
   document.getElementById('sb-value').textContent    = '$' + totalVal.toFixed(0);
   document.getElementById('sb-sales').textContent    = outCount;
+}
+
+// ── Low stock modal ────────────────────────────────────
+function showLowStockModal() {
+  const rows = filteredProducts
+    .filter(p => p.stock <= p.min_stock)
+    .sort((a, b) => (a.stock - a.min_stock) - (b.stock - b.min_stock));
+
+  document.getElementById('modalTitle').textContent = `재고 부족 제품 (${rows.length}개)`;
+  document.getElementById('modalCnt').textContent = rows.length + '개';
+  const totalShort = rows.reduce((s, p) => s + Math.max(0, p.min_stock - p.stock), 0);
+  document.getElementById('modalAmt').textContent = '부족 합계 ' + totalShort + '개';
+  document.getElementById('modalEditBar').style.display = 'none';
+
+  document.getElementById('modalHead').innerHTML = `<tr>
+    <th style="text-align:left">제품명</th>
+    <th style="text-align:right;width:56px">현재 재고</th>
+    <th style="text-align:right;width:56px">최소 기준</th>
+    <th style="text-align:right;width:56px">부족량</th>
+  </tr>`;
+
+  const tbody = document.getElementById('modalBody');
+  tbody.innerHTML = '';
+  rows.forEach(p => {
+    const short = p.min_stock - p.stock;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.name}</td>
+      <td style="text-align:right;color:${p.stock <= 0 ? '#ef4444' : 'var(--orange)'};font-weight:600">${p.stock}</td>
+      <td style="text-align:right">${p.min_stock}</td>
+      <td style="text-align:right;color:#ef4444;font-weight:600">${short > 0 ? short : '±0'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('monthModal').classList.add('open');
 }
 
 // ── Stock bar chart ────────────────────────────────────
