@@ -242,9 +242,9 @@ tbody tr:hover td { background: var(--bg); }
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="modal-summary">
-        <div>판매 건수 <b id="modalCnt">—</b></div>
-        <div>총 매출 <b id="modalAmt">—</b></div>
+      <div class="modal-summary" id="modalSummary">
+        <div>수량 <b id="modalCnt">—</b></div>
+        <div>금액 <b id="modalAmt">—</b></div>
       </div>
       <div id="modalEditBar" style="display:none;margin-bottom:8px">
         <button id="btnDeleteDay" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer"
@@ -377,7 +377,7 @@ tbody tr:hover td { background: var(--bg); }
             <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>판매 (out)</div>
           </div>
           <div class="card-body">
-            <div class="chart-wrap tall"><canvas id="movChart"></canvas></div>
+            <div class="chart-wrap tall"><canvas id="movChart" style="cursor:pointer"></canvas></div>
           </div>
         </div>
       </div>
@@ -552,7 +552,8 @@ function renderMovChart() {
   const top10entries = Object.entries(productMap)
     .sort((a,b) => (b[1].in + b[1].out) - (a[1].in + a[1].out))
     .slice(0, 10);
-  const labels  = top10entries.map(([n]) => n.length > 16 ? n.slice(0,15)+'…' : n);
+  const fullNames = top10entries.map(([n]) => n);
+  const labels    = fullNames.map(n => n.length > 16 ? n.slice(0,15)+'…' : n);
   const inData  = top10entries.map(([,v]) => v.in);
   const outData = top10entries.map(([,v]) => v.out);
 
@@ -572,9 +573,55 @@ function renderMovChart() {
       scales: {
         x: { grid: { color: GRID }, ticks: { font: { size: 11 } } },
         y: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#374151' } }
+      },
+      onClick(event, elements) {
+        if (!elements.length) return;
+        const el = elements[0];
+        const productName = fullNames[el.index];
+        const type = el.datasetIndex === 0 ? 'in' : 'out';
+        showMovDetail(productName, type);
       }
     }
   });
+}
+
+// ── Mov chart detail modal ────────────────────────────
+function showMovDetail(productName, type) {
+  const typeLabel = type === 'in' ? '입고' : '판매';
+  document.getElementById('modalTitle').textContent = `${productName} — ${typeLabel} 내역`;
+
+  const rows = allMovements.filter(m => {
+    const name = m.product_name || m.product_id;
+    return name === productName && m.type === type;
+  }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  let totalQty = 0, totalAmt = 0;
+  rows.forEach(m => {
+    totalQty += m.quantity;
+    totalAmt += m.quantity * (m.unit_cost || 0);
+  });
+  document.getElementById('modalCnt').textContent = totalQty.toLocaleString();
+  document.getElementById('modalAmt').textContent = '$' + totalAmt.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  const editBar = document.getElementById('modalEditBar');
+  if (editBar) editBar.style.display = 'none';
+
+  document.getElementById('modalHead').innerHTML = `<tr><th>날짜</th><th>수량</th><th>단가</th><th>금액</th><th>메모</th></tr>`;
+
+  const tbody = document.getElementById('modalBody');
+  tbody.innerHTML = '';
+  rows.forEach(m => {
+    const date = m.created_at ? m.created_at.slice(0, 10) : '—';
+    const qty = m.quantity;
+    const cost = m.unit_cost || 0;
+    const amt = qty * cost;
+    const note = m.note || '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${date}</td><td>${qty.toLocaleString()}</td><td>$${cost.toFixed(2)}</td><td>$${amt.toFixed(2)}</td><td>${note}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('monthModal').classList.add('open');
 }
 
 // ── Monthly amount helper ──────────────────────────────
