@@ -734,20 +734,25 @@ function matchProduct(item) {
   return { type: 'none', product: null };
 }
 
+function upcCellHTML(item, i) {
+  const { type } = matchProduct(item);
+  if (type === 'none') {
+    return `<div class="upc-input-wrap">
+      <input type="text" class="upc-inp" id="upc-inp-${i}" placeholder="바코드 입력"
+        maxlength="13" oninput="this.value=this.value.replace(/\\D/g,'')"
+        onkeydown="if(event.key==='Enter')saveSkuMapping(${i})">
+      <button class="link-btn" onclick="saveSkuMapping(${i})">연결</button>
+    </div>`;
+  }
+  return `<span>${item.upc || '—'}</span>`;
+}
+
 function matchBadgeHTML(item, i) {
   const { type, product } = matchProduct(item);
   if (type === 'upc')    return `<span class="match-badge match-upc"    title="${product.name}">✅ <span>바코드 일치</span></span>`;
   if (type === 'linked') return `<span class="match-badge match-linked"  title="${product.name}">🔗 <span>연결됨</span></span>`;
   if (type === 'name')   return `<span class="match-badge match-name"    title="${product.name}">🔍 <span>${product.name.substring(0,20)}…</span></span>`;
-  // ❌ 미등록 — UPC 입력 필드 + 신규 등록 버튼
-  return `<div class="upc-input-wrap">
-    <span class="match-badge match-none" style="padding:2px 5px;flex-shrink:0">❌</span>
-    <input type="text" class="upc-inp" id="upc-inp-${i}" placeholder="UPC (12자리)"
-      maxlength="13" oninput="this.value=this.value.replace(/\\D/g,'')"
-      onkeydown="if(event.key==='Enter')saveSkuMapping(${i})">
-    <button class="link-btn" onclick="saveSkuMapping(${i})">연결</button>
-    <button class="new-product-btn" onclick="openNewProductModal(${i})">➕ 신규</button>
-  </div>`;
+  return `<span class="match-badge match-none">❌ 미등록</span> <button class="new-product-btn" onclick="openNewProductModal(${i})">➕ 신규</button>`;
 }
 
 /* ═══════════════════════════════════
@@ -976,7 +981,7 @@ function renderResult(result) {
         <input class="edit-input mono" id="sku-${i}" value="${item.sku}"
           placeholder="SKU" onchange="updateSku(${i})" style="width:72px">
       </td>
-      <td class="mono" style="font-size:11px;color:var(--fg3)">${item.upc || '—'}</td>
+      <td class="mono" style="font-size:11px;color:var(--fg3)">${upcCellHTML(item, i)}</td>
       <td style="min-width:160px">
         <input class="edit-input" id="desc-${i}" value="${item.desc.replace(/"/g,'&quot;')}"
           placeholder="제품명" onchange="updateDesc(${i})" style="font-weight:500">
@@ -987,14 +992,7 @@ function renderResult(result) {
         <input class="price-edit-input" id="price-${i}" value="${item.unitPrice.toFixed(2)}"
           placeholder="0.00" onchange="updateUnitPrice(${i})">
       </td>
-      <td style="text-align:center">
-        <div class="qty-wrap" style="justify-content:center">
-          <button onclick="changeQty(${i},-1)">−</button>
-          <input type="number" class="qty-input" id="qty-${i}" value="${item.qty}" min="0"
-            onchange="updateQty(${i})" oninput="updateQty(${i})">
-          <button onclick="changeQty(${i},1)">+</button>
-        </div>
-      </td>
+      <td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">${item.qty}</td>
       <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600" id="total-${i}">
         $${item.total.toFixed(2)}
       </td>
