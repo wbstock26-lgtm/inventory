@@ -335,6 +335,8 @@ body {
 .row-saving td { opacity: .6; pointer-events: none; }
 @keyframes flash-ok  { 0%,100%{background:transparent} 50%{background:rgba(22,163,74,.18)} }
 @keyframes flash-err { 0%,100%{background:transparent} 50%{background:rgba(220,38,38,.18)} }
+@keyframes inv-highlight { 0%{background:rgba(37,99,235,.22)} 100%{background:transparent} }
+tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
 .flash-ok  { animation: flash-ok  .6s ease; }
 .flash-err { animation: flash-err .6s ease; }
 
@@ -679,6 +681,7 @@ async function loadAll() {
     renderOrders(orders);
     renderProducts(products);
     renderMovements(movements);
+    checkInvHighlight();
 
   } catch {
     dot.textContent = '● 서버 오프라인';
@@ -691,6 +694,17 @@ async function loadAll() {
     document.getElementById('statLow').textContent = '—';
     document.getElementById('statOrders').textContent = '—';
   }
+}
+
+function checkInvHighlight() {
+  let id;
+  try { id = sessionStorage.getItem('invHighlight'); sessionStorage.removeItem('invHighlight'); } catch {}
+  if (!id) return;
+  const tr = document.querySelector(`tr[data-id="${id}"]`);
+  if (!tr) return;
+  tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  tr.classList.add('inv-hl');
+  setTimeout(() => tr.classList.remove('inv-hl'), 2200);
 }
 
 function renderStats(products, orders) {

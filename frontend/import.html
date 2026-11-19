@@ -387,6 +387,21 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
 .nav-link:hover { background: var(--surface2); color: var(--fg); }
 .nav-link.active { background: var(--accent-bg); color: var(--accent); }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* ── Context menu ── */
+#imp-ctx-menu {
+  position: fixed; z-index: 9999; display: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  overflow: hidden; min-width: 180px;
+}
+#imp-ctx-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 10px 16px; border: none; background: none;
+  color: var(--fg); font-size: 13px; font-weight: 500; cursor: pointer;
+  text-align: left; white-space: nowrap;
+}
+#imp-ctx-menu button:hover { background: var(--accent-bg); color: var(--accent); }
 </style>
 
 <nav class="topnav">
@@ -578,6 +593,11 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="imp-ctx-menu">
+  <button onclick="impCtxCopyRow()">📋 제품 전체 복사</button>
+  <button onclick="impCtxCopyBarcode()">🔢 바코드 복사</button>
+  <button onclick="impCtxCopyName()">📝 제품명 복사</button>
+</div>
 
 <script>
 // PDF.js worker
@@ -1318,6 +1338,38 @@ function showStatus(msg) {
   document.getElementById('statusBar').classList.add('show');
 }
 function hideStatus() { document.getElementById('statusBar').classList.remove('show'); }
+
+/* ── Context menu (import) ── */
+let _impCtxItem = null;
+const impCtxMenu = document.getElementById('imp-ctx-menu');
+document.getElementById('itemsTbody').addEventListener('contextmenu', e => {
+  const tr = e.target.closest('tr[id^="row-"]');
+  if (!tr) return;
+  e.preventDefault();
+  const idx = parseInt(tr.id.replace('row-', ''));
+  if (!parsedItems[idx]) return;
+  _impCtxItem = { ...parsedItems[idx] };
+  const x = Math.min(e.clientX, window.innerWidth  - impCtxMenu.offsetWidth  - 8);
+  const y = Math.min(e.clientY, window.innerHeight - impCtxMenu.offsetHeight - 8);
+  impCtxMenu.style.left = x + 'px'; impCtxMenu.style.top = y + 'px';
+  impCtxMenu.style.display = 'block';
+});
+document.addEventListener('click', () => impCtxMenu.style.display = 'none');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') impCtxMenu.style.display = 'none'; });
+function impCtxCopyRow() {
+  if (!_impCtxItem) return;
+  const p = _impCtxItem;
+  const text = [currentMeta.supplier || '', p.sku || '', p.upc || '', p.desc || '', p.qty, (p.unitPrice || 0).toFixed(2)].join('\t');
+  navigator.clipboard.writeText(text).then(() => showToast('✅ 제품 전체 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
+}
+function impCtxCopyBarcode() {
+  if (!_impCtxItem) return;
+  navigator.clipboard.writeText(_impCtxItem.upc || _impCtxItem.sku || '').then(() => showToast('✅ 바코드 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
+}
+function impCtxCopyName() {
+  if (!_impCtxItem) return;
+  navigator.clipboard.writeText(_impCtxItem.desc || '').then(() => showToast('✅ 제품명 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
+}
 
 let toastTimer;
 function showToast(msg, type = 'success') {

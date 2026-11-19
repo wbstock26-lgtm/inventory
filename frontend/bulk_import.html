@@ -148,6 +148,21 @@ tbody tr:hover td { background: var(--surface2); }
 .toast.success { background: var(--green); }
 .toast.error { background: var(--red); }
 @keyframes slideUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
+
+/* ── Context menu ── */
+#bulk-ctx-menu {
+  position: fixed; z-index: 9999; display: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  overflow: hidden; min-width: 180px;
+}
+#bulk-ctx-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 10px 16px; border: none; background: none;
+  color: var(--fg); font-size: 13px; font-weight: 500; cursor: pointer;
+  text-align: left; white-space: nowrap;
+}
+#bulk-ctx-menu button:hover { background: var(--accent-bg); color: var(--accent); }
 </style>
 
 <!-- Nav -->
@@ -223,6 +238,11 @@ tbody tr:hover td { background: var(--surface2); }
       </table>
     </div>
   </div>
+</div>
+<div id="bulk-ctx-menu">
+  <button onclick="bulkCtxCopyRow()">📋 제품 전체 복사</button>
+  <button onclick="bulkCtxCopyBarcode()">🔢 바코드 복사</button>
+  <button onclick="bulkCtxCopyName()">📝 제품명 복사</button>
 </div>
 
 <script>
@@ -516,6 +536,35 @@ function resetAll() {
   document.getElementById('progressWrap').style.display = 'none';
   document.getElementById('progressFill').style.width = '0%';
   dropZone.classList.remove('has-files');
+}
+
+/* ── Context menu (bulk_import) ── */
+let _bulkCtxData = null;
+const bulkCtxMenu = document.getElementById('bulk-ctx-menu');
+document.getElementById('resultBody').addEventListener('contextmenu', e => {
+  const tr = e.target.closest('tr[data-upc]');
+  if (!tr) return;
+  e.preventDefault();
+  _bulkCtxData = { upc: tr.dataset.upc, name: tr.cells[1] ? tr.cells[1].textContent.replace(/신규|기존/g, '').trim() : '' };
+  const x = Math.min(e.clientX, window.innerWidth  - bulkCtxMenu.offsetWidth  - 8);
+  const y = Math.min(e.clientY, window.innerHeight - bulkCtxMenu.offsetHeight - 8);
+  bulkCtxMenu.style.left = x + 'px'; bulkCtxMenu.style.top = y + 'px';
+  bulkCtxMenu.style.display = 'block';
+});
+document.addEventListener('click', () => bulkCtxMenu.style.display = 'none');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') bulkCtxMenu.style.display = 'none'; });
+function bulkCtxCopyRow() {
+  if (!_bulkCtxData) return;
+  const text = [_bulkCtxData.upc, _bulkCtxData.name].join('\t');
+  navigator.clipboard.writeText(text).then(() => showToast('✅ 제품 전체 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
+}
+function bulkCtxCopyBarcode() {
+  if (!_bulkCtxData) return;
+  navigator.clipboard.writeText(_bulkCtxData.upc || '').then(() => showToast('✅ 바코드 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
+}
+function bulkCtxCopyName() {
+  if (!_bulkCtxData) return;
+  navigator.clipboard.writeText(_bulkCtxData.name || '').then(() => showToast('✅ 제품명 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
 }
 
 function showToast(msg, type = 'success') {

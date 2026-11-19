@@ -193,6 +193,21 @@ label { font-size: 11px; font-weight: 600; color: var(--fg2); display: block; ma
 .submit-btn:hover { background: var(--accent-h); }
 .submit-btn:disabled { background: var(--border); color: var(--fg3); cursor: not-allowed; }
 
+/* ── Context menu ── */
+#spl-ctx-menu {
+  position: fixed; z-index: 9999; display: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  overflow: hidden; min-width: 180px;
+}
+#spl-ctx-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 10px 16px; border: none; background: none;
+  color: var(--fg); font-size: 13px; font-weight: 500; cursor: pointer;
+  text-align: left; white-space: nowrap;
+}
+#spl-ctx-menu button:hover { background: var(--accent-bg); color: var(--accent); }
+
 /* ── Toast ── */
 .toast { position: fixed; bottom: 24px; right: 24px; z-index: 999;
   padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
@@ -352,6 +367,11 @@ tbody tr:last-child td { border-bottom: none; }
 </div>
 
 </div><!-- /main -->
+<div id="spl-ctx-menu">
+  <button onclick="splCtxCopyRow()">📋 제품 전체 복사</button>
+  <button onclick="splCtxCopyBarcode()">🔢 바코드 복사</button>
+  <button onclick="splCtxCopyName()">📝 제품명 복사</button>
+</div>
 
 <script>
 const API = '';
@@ -803,6 +823,40 @@ async function deleteHistory(rowKey, ids) {
   } catch(e) {
     showToast('삭제 실패: ' + e.message, 'err');
   }
+}
+
+/* ── Context menu (split) ── */
+let _splCtxProduct = null;
+const splCtxMenu = document.getElementById('spl-ctx-menu');
+document.getElementById('panelList').addEventListener('contextmenu', e => {
+  const item = e.target.closest('.panel-item');
+  if (!item) return;
+  e.preventDefault();
+  const pg = item.closest('[id^="pg-"]');
+  if (!pg) return;
+  const id = parseInt(pg.id.replace('pg-', ''));
+  _splCtxProduct = _products.find(p => p.id === id) || null;
+  if (!_splCtxProduct) return;
+  const x = Math.min(e.clientX, window.innerWidth  - splCtxMenu.offsetWidth  - 8);
+  const y = Math.min(e.clientY, window.innerHeight - splCtxMenu.offsetHeight - 8);
+  splCtxMenu.style.left = x + 'px'; splCtxMenu.style.top = y + 'px';
+  splCtxMenu.style.display = 'block';
+});
+document.addEventListener('click', () => splCtxMenu.style.display = 'none');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') splCtxMenu.style.display = 'none'; });
+function splCtxCopyRow() {
+  if (!_splCtxProduct) return;
+  const p = _splCtxProduct;
+  const text = [p.barcode || '', p.name || '', p.stock].join('\t');
+  navigator.clipboard.writeText(text).then(() => showToast('✅ 제품 전체 복사됨', 'ok')).catch(() => showToast('복사 실패', 'err'));
+}
+function splCtxCopyBarcode() {
+  if (!_splCtxProduct) return;
+  navigator.clipboard.writeText(_splCtxProduct.barcode || '').then(() => showToast('✅ 바코드 복사됨', 'ok')).catch(() => showToast('복사 실패', 'err'));
+}
+function splCtxCopyName() {
+  if (!_splCtxProduct) return;
+  navigator.clipboard.writeText(_splCtxProduct.name || '').then(() => showToast('✅ 제품명 복사됨', 'ok')).catch(() => showToast('복사 실패', 'err'));
 }
 
 function showToast(msg, type) {

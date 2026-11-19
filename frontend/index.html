@@ -539,12 +539,18 @@ async function showLowStockModal() {
   rows.forEach(p => {
     const short = p.min_stock - p.stock;
     const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.title = '재고 현황에서 보기';
     tr.innerHTML = `
       <td>${p.name}</td>
       <td style="text-align:right;color:${p.stock <= 0 ? '#ef4444' : 'var(--orange)'};font-weight:600">${p.stock}</td>
       <td style="text-align:right">${p.min_stock}</td>
       <td style="text-align:right;color:#ef4444;font-weight:600">${short > 0 ? short : '±0'}</td>
     `;
+    tr.addEventListener('click', () => {
+      try { sessionStorage.setItem('invHighlight', p.id); } catch {}
+      window.location.href = '/inventory.html';
+    });
     tbody.appendChild(tr);
   });
 }
