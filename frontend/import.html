@@ -736,10 +736,12 @@ function matchProduct(item) {
 
 function upcCellHTML(item, i) {
   const { type } = matchProduct(item);
-  if (type === 'none') {
+  if (type === 'none' || type === 'name') {
     return `<div class="upc-input-wrap">
-      <input type="text" class="upc-inp" id="upc-inp-${i}" placeholder="바코드 입력"
-        maxlength="13" oninput="this.value=this.value.replace(/\\D/g,'')"
+      <input type="text" class="upc-inp" id="upc-inp-${i}"
+        value="${item.upc || ''}" placeholder="바코드 직접 입력"
+        maxlength="13"
+        oninput="this.value=this.value.replace(/\\D/g,'');liveMatchUpc(${i},this.value)"
         onkeydown="if(event.key==='Enter')saveSkuMapping(${i})">
       <button class="link-btn" onclick="saveSkuMapping(${i})">연결</button>
     </div>`;
@@ -988,7 +990,7 @@ function renderResult(result) {
         <input class="edit-input" id="desc-${i}" value="${item.desc.replace(/"/g,'&quot;')}"
           placeholder="제품명" onchange="updateDesc(${i})" style="font-weight:500">
       </td>
-      <td>${matchBadgeHTML(item, i)}</td>
+      <td id="badge-${i}">${matchBadgeHTML(item, i)}</td>
       <td><span class="sup-tag ${supClass[meta.supplier]}">${meta.supplier}</span></td>
       <td style="text-align:right">
         <input class="price-edit-input" id="price-${i}" value="${item.unitPrice.toFixed(2)}"
@@ -1113,13 +1115,26 @@ async function saveSkuMapping(i) {
   }
 
   // 행 매칭 셀 업데이트
-  const row = document.getElementById('row-' + i);
-  if (row) {
-    const cells = row.querySelectorAll('td');
-    if (cells[4]) cells[4].innerHTML = matchBadgeHTML(item, i);
-  }
+  const badgeCell = document.getElementById('badge-' + i);
+  if (badgeCell) badgeCell.innerHTML = matchBadgeHTML(item, i);
   updateMatchStats(parsedItems);
   showToast(`🔗 UPC ${barcode} 연결 완료 — 다음 주문부터 자동 매칭`, 'success');
+}
+
+function liveMatchUpc(i, val) {
+  parsedItems[i].upc = val;
+  const badgeCell = document.getElementById('badge-' + i);
+  if (!badgeCell) return;
+  if (val.length >= 8) {
+    const found = INVENTORY.find(p => p.barcode === val);
+    if (found) {
+      badgeCell.innerHTML = `<span class="match-badge match-upc" title="${found.name}">✅ <span>${found.name.substring(0, 22)}</span></span>`;
+      return;
+    }
+    badgeCell.innerHTML = `<span class="match-badge match-none" style="font-size:11px">❌ 재고 없음</span>`;
+    return;
+  }
+  badgeCell.innerHTML = matchBadgeHTML(parsedItems[i], i);
 }
 
 function updateMatchStats(items) {
@@ -1600,11 +1615,8 @@ document.getElementById('npConfirm').addEventListener('click', async () => {
     await loadInventory();
 
     if (_npItemIndex >= 0) {
-      const row = document.getElementById(`row-${_npItemIndex}`);
-      if (row) {
-        const cells = row.querySelectorAll('td');
-        if (cells[4]) cells[4].innerHTML = matchBadgeHTML(parsedItems[_npItemIndex], _npItemIndex);
-      }
+      const npBadge = document.getElementById(`badge-${_npItemIndex}`);
+      if (npBadge) npBadge.innerHTML = matchBadgeHTML(parsedItems[_npItemIndex], _npItemIndex);
       updateMatchStats(parsedItems);
     }
 
