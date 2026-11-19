@@ -192,6 +192,21 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 .month-nav-btn:hover { background:var(--border); }
 .month-nav-btn:disabled { opacity:.4; cursor:not-allowed; }
 .month-label { font-size:14px; font-weight:600; flex:1; text-align:center; }
+
+/* ── Context menu ── */
+#sal-ctx-menu {
+  position: fixed; z-index: 9999; display: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  overflow: hidden; min-width: 180px;
+}
+#sal-ctx-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 10px 16px; border: none; background: none;
+  color: var(--fg); font-size: 13px; font-weight: 500; cursor: pointer;
+  text-align: left; white-space: nowrap;
+}
+#sal-ctx-menu button:hover { background: var(--accent-bg); color: var(--accent); }
 </style>
 
 <!-- Nav -->
@@ -444,6 +459,11 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 </div>
 
 <div id="toast"></div>
+<div id="sal-ctx-menu">
+  <button onclick="salCtxCopyRow()">📋 제품 전체 복사</button>
+  <button onclick="salCtxCopyBarcode()">🔢 바코드 복사</button>
+  <button onclick="salCtxCopyName()">📝 제품명 복사</button>
+</div>
 
 <script>
 const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
@@ -865,7 +885,7 @@ function renderPreview() {
     totalQty += item.qty;
     const stockInfo = product ? `현재 ${product.stock}개` : '미등록';
     return `
-    <tr class="${isMatch ? '' : 'unmatched'}">
+    <tr class="${isMatch ? '' : 'unmatched'}" data-upc="${item.upc}" data-idx="${idx}">
       <td style="font-family:'IBM Plex Mono',monospace;font-size:11px">${item.upc}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${item.name}">
         ${isMatch ? product.name : `<span style="color:var(--red)">${item.name}</span>`}
@@ -981,6 +1001,41 @@ function clearAll() {
   document.getElementById('submitBtn').disabled = true;
   document.getElementById('resultPanel').classList.remove('show');
   document.getElementById('manualList').textContent = '추가된 항목이 없습니다';
+}
+
+/* ── Context menu (sales) ── */
+let _salCtxItem = null;
+const salCtxMenu = document.getElementById('sal-ctx-menu');
+document.getElementById('previewBody').addEventListener('contextmenu', e => {
+  const tr = e.target.closest('tr[data-upc]');
+  if (!tr) return;
+  e.preventDefault();
+  const idx = parseInt(tr.dataset.idx);
+  _salCtxItem = previewItems[idx] || null;
+  if (!_salCtxItem) return;
+  const matched = inventory.find(p => p.barcode === _salCtxItem.upc);
+  _salCtxItem._matchedName = matched ? matched.name : _salCtxItem.name;
+  const x = Math.min(e.clientX, window.innerWidth  - salCtxMenu.offsetWidth  - 8);
+  const y = Math.min(e.clientY, window.innerHeight - salCtxMenu.offsetHeight - 8);
+  salCtxMenu.style.left = x + 'px'; salCtxMenu.style.top = y + 'px';
+  salCtxMenu.style.display = 'block';
+});
+document.addEventListener('click', () => salCtxMenu.style.display = 'none');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') salCtxMenu.style.display = 'none'; });
+function salCtxCopyRow() {
+  if (!_salCtxItem) return;
+  const p = _salCtxItem;
+  const amt = p.amount > 0 ? '$' + p.amount.toFixed(2) : '—';
+  const text = [p.upc, p._matchedName || p.name, p.qty, amt].join('\t');
+  navigator.clipboard.writeText(text).then(() => showToast('✅ 제품 전체 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
+}
+function salCtxCopyBarcode() {
+  if (!_salCtxItem) return;
+  navigator.clipboard.writeText(_salCtxItem.upc || '').then(() => showToast('✅ 바코드 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
+}
+function salCtxCopyName() {
+  if (!_salCtxItem) return;
+  navigator.clipboard.writeText(_salCtxItem._matchedName || _salCtxItem.name || '').then(() => showToast('✅ 제품명 복사됨', 'success')).catch(() => showToast('복사 실패', 'error'));
 }
 
 function showToast(msg, type) {
