@@ -373,6 +373,30 @@ body {
 .pp-tbl tfoot tr td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; padding-top: 6px; }
 .pp-empty { padding: 20px 14px; text-align: center; color: var(--fg3); font-size: 12px; }
 #popupOverlay { position: fixed; inset: 0; z-index: 199; }
+
+/* Context menu */
+#inv-ctx-menu {
+  position: fixed; z-index: 9999; display: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  overflow: hidden; min-width: 180px;
+}
+#inv-ctx-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 10px 16px; border: none; background: none;
+  color: var(--fg); font-size: 13px; font-weight: 500; cursor: pointer;
+  text-align: left; white-space: nowrap;
+}
+#inv-ctx-menu button:hover { background: var(--accent-bg); color: var(--accent); }
+/* Inv toast */
+#inv-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--fg); color: var(--bg); padding: 10px 20px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; z-index: 10000; opacity: 0;
+  transition: transform .25s, opacity .25s; pointer-events: none;
+}
+#inv-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+#inv-toast.error { background: var(--red); color: #fff; }
 </style>
 
 <!-- Nav -->
@@ -559,6 +583,12 @@ body {
   </div>
 </div>
 <div id="popupOverlay" style="display:none" onclick="closeBarcodePopup()"></div>
+<div id="inv-ctx-menu">
+  <button onclick="invCtxCopyRow()">📋 제품 전체 복사</button>
+  <button onclick="invCtxCopyBarcode()">🔢 바코드 복사</button>
+  <button onclick="invCtxCopyName()">📝 제품명 복사</button>
+</div>
+<div id="inv-toast"></div>
 
 <script>
 const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
@@ -1288,6 +1318,72 @@ function setOcrStatus(msg) {
 
 // ── 실시간 갱신 ──────────────────────────────
 // 1) prices.html 등 같은 브라우저 탭들에서 저장 시 즉시 갱신
+// ── Context menu (우클릭 복사) ───────────────────────────────
+let _invCtxProduct = null;
+const invCtxMenu = document.getElementById('inv-ctx-menu');
+
+document.getElementById('productTbody').addEventListener('contextmenu', e => {
+  // 바코드 셀은 기존 팝업 유지
+  if (e.target.closest('td[oncontextmenu]')) return;
+  const tr = e.target.closest('tr[data-id]');
+  if (!tr) return;
+  e.preventDefault();
+  const id = parseInt(tr.dataset.id);
+  _invCtxProduct = (_lastProducts || []).find(p => p.id === id);
+  if (!_invCtxProduct) return;
+  const x = Math.min(e.clientX, window.innerWidth  - invCtxMenu.offsetWidth  - 8);
+  const y = Math.min(e.clientY, window.innerHeight - invCtxMenu.offsetHeight - 8);
+  invCtxMenu.style.left = x + 'px';
+  invCtxMenu.style.top  = y + 'px';
+  invCtxMenu.style.display = 'block';
+});
+
+document.addEventListener('click',   () => invCtxMenu.style.display = 'none');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') invCtxMenu.style.display = 'none'; });
+
+function invShowToast(msg, isErr) {
+  const t = document.getElementById('inv-toast');
+  t.textContent = msg; t.className = 'show' + (isErr ? ' error' : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 2500);
+}
+
+function invCtxCopyRow() {
+  if (!_invCtxProduct) return;
+  const p = _invCtxProduct;
+  const dept = DEPT_MAP[p.vendor] || '—';
+  const total = (p.stock * (p.cost || 0)).toFixed(2);
+  const text = [
+    dept,
+    p.barcode || '',
+    p.name,
+    p.stock,
+    p.cost  > 0 ? p.cost.toFixed(2)  : '',
+    total !== '0.00' ? total : '',
+    p.price > 0 ? p.price.toFixed(2) : '',
+  ].join('\t');
+  navigator.clipboard.writeText(text)
+    .then(() => invShowToast('✅ 제품 전체 복사됨', false))
+    .catch(() => invShowToast('복사 실패 (권한 없음)', true));
+  invCtxMenu.style.display = 'none';
+}
+
+function invCtxCopyBarcode() {
+  if (!_invCtxProduct?.barcode) { invShowToast('바코드 없음', true); return; }
+  navigator.clipboard.writeText(_invCtxProduct.barcode)
+    .then(() => invShowToast('✅ 바코드 복사됨', false))
+    .catch(() => invShowToast('복사 실패', true));
+  invCtxMenu.style.display = 'none';
+}
+
+function invCtxCopyName() {
+  if (!_invCtxProduct) return;
+  navigator.clipboard.writeText(_invCtxProduct.name)
+    .then(() => invShowToast('✅ 제품명 복사됨', false))
+    .catch(() => invShowToast('복사 실패', true));
+  invCtxMenu.style.display = 'none';
+}
+
 const bc = new BroadcastChannel('inventory-update');
 bc.onmessage = () => loadAll();
 
