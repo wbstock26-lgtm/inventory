@@ -422,6 +422,7 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
         <col style="width:44px">   <!-- Dept -->
         <col style="width:116px">  <!-- UPC -->
         <col style="min-width:200px"> <!-- 제품명 (flex) -->
+        <col style="width:80px">   <!-- SKU -->
         <col style="width:50px">   <!-- Unit -->
         <col style="width:90px">   <!-- 입고가 -->
         <col style="width:64px">   <!-- 단가(원가) -->
@@ -434,6 +435,7 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
           <th>Dept</th>
           <th>UPC</th>
           <th>제품명</th>
+          <th>SKU ✏️</th>
           <th style="text-align:right">Unit ✏️</th>
           <th style="text-align:right">입고가 ✏️</th>
           <th style="text-align:right">단가 (원가)</th>
@@ -443,7 +445,7 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
         </tr>
       </thead>
       <tbody id="priceBody">
-        <tr><td colspan="9" class="empty">불러오는 중…</td></tr>
+        <tr><td colspan="10" class="empty">불러오는 중…</td></tr>
       </tbody>
     </table>
   </div>
@@ -526,7 +528,7 @@ function renderTable() {
   const tbody = document.getElementById('priceBody');
   const list = getFilteredProducts();
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">해당하는 제품이 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">해당하는 제품이 없습니다</td></tr>';
     return;
   }
   tbody.innerHTML = list.map(p => {
@@ -552,11 +554,17 @@ function renderTable() {
             <div class="barcode-hint" id="barcode-hint-${p.id}"></div>`}
       </td>
       <td style="max-width:240px">
-        ${(window._skuMap||{})[p.id] ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--fg3);margin-bottom:2px;letter-spacing:.02em">${(window._skuMap||{})[p.id]}</div>` : ''}
         <input class="name-input${ch.name!==undefined?' changed':''}" type="text"
           data-id="${p.id}" data-field="name"
           value="${(ch.name !== undefined ? ch.name : p.name).replace(/"/g,'&quot;')}"
           title="${p.name}">
+      </td>
+      <td>
+        <input class="sku-input${ch.sku!==undefined?' changed':''}" type="text"
+          data-id="${p.id}" data-field="sku" data-vendor="${p.vendor||''}"
+          value="${ch.sku !== undefined ? ch.sku : ((window._skuMap||{})[p.id] || '')}"
+          placeholder="SKU" maxlength="20"
+          style="width:100%;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.03em">
       </td>
       <td style="text-align:right">
         <input class="unit-input${ch.unit!==undefined?' changed':''}" type="text"
@@ -589,12 +597,12 @@ function renderTable() {
   }).join('');
 
   // Attach input listeners
-  tbody.querySelectorAll('.price-input, .name-input, .unit-input, .barcode-input').forEach(input => {
+  tbody.querySelectorAll('.price-input, .name-input, .unit-input, .barcode-input, .sku-input').forEach(input => {
     input.addEventListener('input', onFieldInput);
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); saveOne(+input.dataset.id); }
       if (e.key === 'Tab') {
-        const inputs = [...tbody.querySelectorAll('.price-input, .name-input, .unit-input, .barcode-input')];
+        const inputs = [...tbody.querySelectorAll('.price-input, .name-input, .unit-input, .barcode-input, .sku-input')];
         const idx = inputs.indexOf(input);
         if (idx < inputs.length - 1) { e.preventDefault(); inputs[idx+1].focus(); }
       }
@@ -614,6 +622,23 @@ function onFieldInput(e) {
     const val = input.value;
     const original = p ? p.name : '';
     if (val.trim() === original.trim()) {
+      delete pendingChanges[id][field];
+      if (!Object.keys(pendingChanges[id]).length) delete pendingChanges[id];
+    } else {
+      pendingChanges[id][field] = val;
+    }
+    const isDirty = !!pendingChanges[id];
+    const row = document.getElementById(`row-${id}`);
+    if (row) row.classList.toggle('dirty', isDirty);
+    input.classList.toggle('changed', pendingChanges[id]?.[field] !== undefined);
+    updateSaveAllBtn();
+    return;
+  }
+
+  if (field === 'sku') {
+    const val = input.value.trim();
+    const original = (window._skuMap||{})[id] || '';
+    if (val === original) {
       delete pendingChanges[id][field];
       if (!Object.keys(pendingChanges[id]).length) delete pendingChanges[id];
     } else {
@@ -757,18 +782,47 @@ async function saveOne(id) {
   if (ch.delivery_price !== undefined) payload.delivery_price = ch.delivery_price;
   if (ch.cost           !== undefined) payload.cost           = ch.cost;
   if (ch.price          !== undefined) payload.price          = ch.price;
-  if (!Object.keys(payload).length) { showToast('변경된 내용이 없습니다', false); return; }
+  const skuVal = ch.sku;
+
+  if (!Object.keys(payload).length && skuVal === undefined) { showToast('변경된 내용이 없습니다', false); return; }
 
   const btn = document.getElementById(`btn-${id}`);
   if (btn) btn.classList.add('saving');
 
   try {
-    await api(`/api/products/${id}`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload),
-    });
-    applySaveSuccess(id, payload, btn);
+    // 제품 필드 저장
+    if (Object.keys(payload).length) {
+      await api(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+    }
+
+    // SKU 저장
+    if (skuVal !== undefined) {
+      const vendor = p?.vendor || '';
+      if (skuVal.trim()) {
+        await api('/api/sku-map', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ supplier: vendor, item_no: skuVal.trim(), product_id: id, barcode: p?.barcode || null }),
+        });
+        if (!window._skuMap) window._skuMap = {};
+        window._skuMap[id] = skuVal.trim();
+      } else {
+        // 빈 값이면 기존 매핑 삭제
+        const existing = (window._skuMap||{})[id];
+        if (existing) {
+          const maps = await api(`/api/sku-map?supplier=${encodeURIComponent(vendor)}`).catch(()=>[]);
+          const entry = maps.find(m => m.product_id === id);
+          if (entry) await api(`/api/sku-map/${entry.id}`, { method: 'DELETE' }).catch(()=>{});
+          delete window._skuMap[id];
+        }
+      }
+    }
+
+    applySaveSuccess(id, payload, btn, skuVal);
   } catch (err) {
     if (btn) btn.classList.remove('saving');
     // 바코드 중복 감지 → 통합 다이얼로그
@@ -780,7 +834,7 @@ async function saveOne(id) {
   }
 }
 
-function applySaveSuccess(id, payload, btn) {
+function applySaveSuccess(id, payload, btn, skuVal) {
   const p = allProducts.find(x => x.id === id);
   if (p) {
     Object.assign(p, payload);
