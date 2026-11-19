@@ -505,10 +505,21 @@ function renderKpi() {
 }
 
 // ── Low stock modal ────────────────────────────────────
-function showLowStockModal() {
-  const rows = filteredProducts
-    .filter(p => p.stock <= p.min_stock)
-    .sort((a, b) => (a.stock - a.min_stock) - (b.stock - b.min_stock));
+async function showLowStockModal() {
+  document.getElementById('monthModal').classList.add('open');
+  document.getElementById('modalTitle').textContent = '재고 부족 제품 조회 중…';
+  document.getElementById('modalBody').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--fg3)">로딩 중…</td></tr>';
+
+  let rows;
+  try {
+    rows = await fetch(`${API}/api/stock/low`).then(r => r.json());
+    rows.sort((a, b) => (a.stock - a.min_stock) - (b.stock - b.min_stock));
+  } catch {
+    // API 실패 시 캐시 데이터 fallback
+    rows = filteredProducts
+      .filter(p => p.stock <= p.min_stock)
+      .sort((a, b) => (a.stock - a.min_stock) - (b.stock - b.min_stock));
+  }
 
   document.getElementById('modalTitle').textContent = `재고 부족 제품 (${rows.length}개)`;
   document.getElementById('modalCnt').textContent = rows.length + '개';
@@ -536,8 +547,6 @@ function showLowStockModal() {
     `;
     tbody.appendChild(tr);
   });
-
-  document.getElementById('monthModal').classList.add('open');
 }
 
 // ── Stock bar chart ────────────────────────────────────
