@@ -157,6 +157,19 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
   font-size: 13px; font-weight: 600;
 }
 .qty-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.edit-input {
+  width: 100%; padding: 3px 5px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--surface); color: var(--fg); font-size: 12px;
+  box-sizing: border-box;
+}
+.edit-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.edit-input.mono { font-family: 'IBM Plex Mono', monospace; }
+.price-edit-input {
+  width: 72px; padding: 3px 5px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--surface); color: var(--fg);
+  font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right;
+}
+.price-edit-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 /* ── Supplier tag ── */
 .sup-tag {
@@ -959,12 +972,21 @@ function renderResult(result) {
       <td style="width:28px;text-align:center">
         <input type="checkbox" checked id="chk-${i}" onchange="toggleRow(${i})" style="cursor:pointer;width:14px;height:14px">
       </td>
-      <td class="mono" style="color:var(--fg2)">${item.sku}</td>
+      <td class="mono" style="color:var(--fg2);min-width:70px">
+        <input class="edit-input mono" id="sku-${i}" value="${item.sku}"
+          placeholder="SKU" onchange="updateSku(${i})" style="width:72px">
+      </td>
       <td class="mono" style="font-size:11px;color:var(--fg3)">${item.upc || '—'}</td>
-      <td style="font-weight:500;max-width:220px">${item.desc}</td>
+      <td style="min-width:160px">
+        <input class="edit-input" id="desc-${i}" value="${item.desc.replace(/"/g,'&quot;')}"
+          placeholder="제품명" onchange="updateDesc(${i})" style="font-weight:500">
+      </td>
       <td>${matchBadgeHTML(item, i)}</td>
       <td><span class="sup-tag ${supClass[meta.supplier]}">${meta.supplier}</span></td>
-      <td style="text-align:right;font-variant-numeric:tabular-nums">$${item.unitPrice.toFixed(2)}</td>
+      <td style="text-align:right">
+        <input class="price-edit-input" id="price-${i}" value="${item.unitPrice.toFixed(2)}"
+          placeholder="0.00" onchange="updateUnitPrice(${i})">
+      </td>
       <td style="text-align:center">
         <div class="qty-wrap" style="justify-content:center">
           <button onclick="changeQty(${i},-1)">−</button>
@@ -1011,6 +1033,28 @@ function updateQty(i) {
   const qty = Math.max(0, parseInt(inp.value) || 0);
   parsedItems[i].qty = qty;
   parsedItems[i].total = qty * parsedItems[i].unitPrice;
+  document.getElementById('total-' + i).textContent = '$' + parsedItems[i].total.toFixed(2);
+  updateSummary();
+}
+
+function updateSku(i) {
+  const inp = document.getElementById('sku-' + i);
+  parsedItems[i].sku = inp.value.trim();
+}
+
+function updateDesc(i) {
+  const inp = document.getElementById('desc-' + i);
+  parsedItems[i].desc = inp.value.trim();
+}
+
+function updateUnitPrice(i) {
+  const inp = document.getElementById('price-' + i);
+  let val = parseFloat(inp.value) || 0;
+  if (val < 0) val = 0;
+  val = Math.round(val * 100) / 100;
+  inp.value = val.toFixed(2);
+  parsedItems[i].unitPrice = val;
+  parsedItems[i].total = parsedItems[i].qty * val;
   document.getElementById('total-' + i).textContent = '$' + parsedItems[i].total.toFixed(2);
   updateSummary();
 }
