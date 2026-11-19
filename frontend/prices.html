@@ -141,6 +141,21 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 .btn-delete-row { padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--fg3); font-size: 12px; cursor: pointer; transition: all .1s; line-height: 1; }
 .btn-delete-row:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
 
+/* Context menu */
+#ctx-menu {
+  position: fixed; z-index: 9999; display: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  overflow: hidden; min-width: 180px;
+}
+#ctx-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 10px 16px; border: none; background: none;
+  color: var(--fg); font-size: 13px; font-weight: 500; cursor: pointer;
+  text-align: left; white-space: nowrap;
+}
+#ctx-menu button:hover { background: var(--accent-bg); color: var(--accent); }
+
 /* Toast */
 #toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
@@ -435,6 +450,11 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 </div>
 
 <div id="toast"></div>
+<div id="ctx-menu">
+  <button onclick="ctxCopyRow()">📋 제품 전체 복사</button>
+  <button onclick="ctxCopyBarcode()">🔢 바코드 복사</button>
+  <button onclick="ctxCopyName()">📝 제품명 복사</button>
+</div>
 
 <!-- Merge modal -->
 <div class="merge-modal-backdrop" id="mergeModal" hidden>
@@ -959,6 +979,71 @@ function updateSummary() {
   document.getElementById('sumTotal').textContent = total;
   document.getElementById('sumSet').textContent = setCount;
   document.getElementById('sumUnset').textContent = total - setCount;
+}
+
+// ── Context menu (우클릭 복사) ───────────────────────────────
+let _ctxProduct = null;
+const ctxMenu = document.getElementById('ctx-menu');
+
+document.getElementById('priceBody').addEventListener('contextmenu', e => {
+  const tr = e.target.closest('tr[id^="row-"]');
+  if (!tr) return;
+  e.preventDefault();
+  const id = parseInt(tr.id.replace('row-', ''));
+  _ctxProduct = allProducts.find(p => p.id === id);
+  if (!_ctxProduct) return;
+  const ch = pendingChanges[id] || {};
+  _ctxProduct._cur = {
+    barcode:        _ctxProduct.barcode || '',
+    name:           ch.name           !== undefined ? ch.name           : _ctxProduct.name,
+    unit:           ch.unit           !== undefined ? ch.unit           : (_ctxProduct.unit || 0),
+    delivery_price: ch.delivery_price !== undefined ? ch.delivery_price : (_ctxProduct.delivery_price || 0),
+    cost:           ch.cost           !== undefined ? ch.cost           : (_ctxProduct.cost || 0),
+    price:          ch.price          !== undefined ? ch.price          : (_ctxProduct.price || 0),
+  };
+  const x = Math.min(e.clientX, window.innerWidth  - ctxMenu.offsetWidth  - 8);
+  const y = Math.min(e.clientY, window.innerHeight - ctxMenu.offsetHeight - 8);
+  ctxMenu.style.left = x + 'px';
+  ctxMenu.style.top  = y + 'px';
+  ctxMenu.style.display = 'block';
+});
+
+document.addEventListener('click',     () => ctxMenu.style.display = 'none');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') ctxMenu.style.display = 'none'; });
+
+function ctxCopyRow() {
+  if (!_ctxProduct) return;
+  const c = _ctxProduct._cur;
+  const dept = DEPT_MAP[_ctxProduct.vendor] || '—';
+  const text = [
+    dept,
+    c.barcode,
+    c.name,
+    c.unit > 0 ? c.unit : '',
+    c.delivery_price > 0 ? c.delivery_price.toFixed(2) : '',
+    c.cost  > 0 ? c.cost.toFixed(2)  : '',
+    c.price > 0 ? c.price.toFixed(2) : '',
+  ].join('\t');
+  navigator.clipboard.writeText(text)
+    .then(() => showToast('✅ 제품 전체 복사됨', false))
+    .catch(() => showToast('복사 실패 (권한 없음)', true));
+  ctxMenu.style.display = 'none';
+}
+
+function ctxCopyBarcode() {
+  if (!_ctxProduct?._cur.barcode) { showToast('바코드 없음', true); return; }
+  navigator.clipboard.writeText(_ctxProduct._cur.barcode)
+    .then(() => showToast('✅ 바코드 복사됨', false))
+    .catch(() => showToast('복사 실패', true));
+  ctxMenu.style.display = 'none';
+}
+
+function ctxCopyName() {
+  if (!_ctxProduct) return;
+  navigator.clipboard.writeText(_ctxProduct._cur.name)
+    .then(() => showToast('✅ 제품명 복사됨', false))
+    .catch(() => showToast('복사 실패', true));
+  ctxMenu.style.display = 'none';
 }
 
 function showToast(msg, isErr) {
