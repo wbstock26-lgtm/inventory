@@ -1099,7 +1099,8 @@ async function saveEdit(input, productId, field, originalHtml) {
       const r = await fetch(`${API_BASE}/api/products/${productId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        keepalive: true
       });
       if (!r.ok) throw new Error(await r.text());
       const updated = await r.json();
@@ -1175,7 +1176,8 @@ function startDeptEdit(badge, productId) {
       const r = await fetch(`${API_BASE}/api/products/${productId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vendor: newVendor || null })
+        body: JSON.stringify({ vendor: newVendor || null }),
+        keepalive: true
       });
       if (!r.ok) throw new Error(await r.text());
       tr.classList.remove('row-saving');
