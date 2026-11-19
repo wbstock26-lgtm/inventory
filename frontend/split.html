@@ -355,6 +355,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 <script>
 const API = '';
+const bc = new BroadcastChannel('inventory-update');
 
 let _products = [];
 let srcProduct = null;
@@ -718,6 +719,7 @@ async function doSplit() {
     if (!r.ok) { const e = await r.json(); throw new Error(e.detail || '오류'); }
     const res = await r.json();
     showToast(`✅ Split 완료: ${res.from_product} -${res.qty_removed} / ${res.to_product} +${res.qty_added}`, 'ok');
+    bc.postMessage('split-updated');
 
     srcProduct.stock = res.from_stock_after;
     dstProduct.stock = res.to_stock_after;
@@ -794,6 +796,7 @@ async function deleteHistory(rowKey, ids) {
     const row = document.getElementById(`hist-row-${rowKey}`);
     if (row) row.remove();
     showToast('삭제됨', 'ok');
+    bc.postMessage('split-updated');
     // 패널 재고 갱신
     _products = await fetch(`${API}/api/products?limit=2000`).then(r=>r.json());
     refreshPanel();
