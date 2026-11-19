@@ -782,9 +782,9 @@ function renderProducts(products) {
     return `
     <tr data-id="${p.id}" data-stock="${p.stock}" data-vendor="${p.vendor||''}" data-cost="${p.cost||0}" data-min-stock="${p.min_stock||0}">
       <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})">${dept}</span></td>
-      <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2);cursor:context-menu"
-          title="우클릭: 입고/판매 현황" oncontextmenu="showBarcodePopup(event,${p.id})">
-        ${p.barcode || '—'}
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2)"
+          title="클릭: 바코드 편집 / 우클릭: 입고/판매 현황" oncontextmenu="showBarcodePopup(event,${p.id})">
+        <span class="editable-cell" onclick="startEdit(this,${p.id},'barcode')" style="font-family:inherit;font-size:inherit">${p.barcode || '—'}</span>
       </td>
       <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif;cursor:text"
           onclick="if(event.target===this||event.target.classList.contains('sku-label')){const s=this.querySelector('.name-cell');if(s)startEdit(s,${p.id},'name');}">
@@ -960,10 +960,14 @@ let _editActive = null;
 function startEdit(span, productId, field, currentVal) {
   if (_editActive) cancelEdit();
 
-  const isStock  = field === 'stock';
-  const isExpr   = field === 'cost' || field === 'price';
-  const isName   = field === 'name';
-  const rawVal   = (isName || isStock) ? span.textContent.trim() : String(currentVal).replace(/^\$/, '');
+  const isStock   = field === 'stock';
+  const isExpr    = field === 'cost' || field === 'price';
+  const isName    = field === 'name';
+  const isBarcode = field === 'barcode';
+  const rawText   = span.textContent.trim();
+  const rawVal    = (isName || isStock || isBarcode)
+    ? (rawText === '—' ? '' : rawText)
+    : String(currentVal).replace(/^\$/, '');
 
   const input = document.createElement('input');
   input.className = 'edit-input';
