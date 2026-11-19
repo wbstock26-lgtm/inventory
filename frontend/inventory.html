@@ -562,7 +562,6 @@ body {
 
 <script>
 const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
-const bc = new BroadcastChannel('inventory-update');
 
 // ── Split 24K/12K 마킹 ───────────────────────────────────────────
 function lsGet(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
