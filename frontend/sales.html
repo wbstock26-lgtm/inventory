@@ -112,6 +112,23 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 }
 .qty-input:focus { outline: none; border-color: var(--accent); }
 
+/* UPC / 판매가 inline inputs */
+.upc-edit-input {
+  width: 120px; padding: 4px 6px; border-radius: 5px;
+  border: 1px solid var(--red); background: var(--red-bg);
+  color: var(--fg); font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+}
+.upc-edit-input:focus { outline: 2px solid var(--red); outline-offset: -1px; }
+.sale-price-input {
+  width: 80px; padding: 4px 6px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--fg); font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: right;
+}
+.sale-price-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.sale-price-input[readonly] {
+  background: transparent; border-color: transparent; color: var(--fg2); cursor: default;
+}
+
 /* Summary chips */
 .chip-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; font-size: 12px; }
@@ -316,12 +333,13 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
                 <th>UPC</th>
                 <th>제품명</th>
                 <th style="text-align:center">판매수량</th>
+                <th style="text-align:right">판매가</th>
                 <th style="text-align:right">금액</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="previewBody">
-              <tr><td colspan="5" class="empty">파싱 또는 직접 입력 후 미리보기를 확인하세요</td></tr>
+              <tr><td colspan="6" class="empty">파싱 또는 직접 입력 후 미리보기를 확인하세요</td></tr>
             </tbody>
           </table>
         </div>
@@ -858,10 +876,10 @@ document.getElementById('manualQty').addEventListener('keydown', e => {
 // ── Preview render ─────────────────────────────────────
 function renderPreview() {
   const tbody = document.getElementById('previewBody');
-  const allItems = [...previewItems]; // already merged with manual
+  const allItems = [...previewItems];
 
   if (!allItems.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">항목 없음</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">항목 없음</td></tr>';
     document.getElementById('chipRow').style.display = 'none';
     document.getElementById('submitBtn').disabled = true;
     return;
@@ -873,29 +891,57 @@ function renderPreview() {
     const isMatch = !!product;
     if (isMatch) matched++;
 
-    // 금액 없으면 판매가(product.price) 자동 적용
-    if ((!item.amount || item.amount <= 0) && product?.price > 0) {
-      previewItems[idx].amount = product.price * item.qty;
-      previewItems[idx]._autoPrice = product.price;
+    // 판매가 결정: 기존 salePrice → 보고서 금액/qty → product.price 순
+    let salePrice = previewItems[idx].salePrice;
+    if (salePrice === undefined || salePrice === null) {
+      if (item.amount > 0 && item.qty > 0) {
+        salePrice = item.amount / item.qty;
+      } else if (product?.price > 0) {
+        salePrice = product.price;
+      } else {
+        salePrice = 0;
+      }
+      previewItems[idx].salePrice = salePrice;
     }
-    const dispAmt = previewItems[idx].amount;
-    const autoTag = previewItems[idx]._autoPrice
-      ? `<span style="font-size:9px;color:var(--fg3);margin-left:3px">자동</span>` : '';
+
+    // 금액 = salePrice × qty
+    if (salePrice > 0) {
+      previewItems[idx].amount = salePrice * item.qty;
+    }
+
+    const dispAmt = previewItems[idx].amount || 0;
+    // 판매가가 재고 등록 가격과 같으면 readonly
+    const isLocked = isMatch && product.price > 0 && Math.abs(salePrice - product.price) < 0.001;
 
     totalQty += item.qty;
     const stockInfo = product ? `현재 ${product.stock}개` : '미등록';
+
+    // UPC 셀: 미매칭이면 편집 가능
+    const upcCell = isMatch
+      ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px">${item.upc}</span>`
+      : `<input class="upc-edit-input" type="text" value="${item.upc}"
+           placeholder="바코드 입력" maxlength="15"
+           onchange="updateBarcode(${idx}, this.value)">`;
+
     return `
     <tr class="${isMatch ? '' : 'unmatched'}" data-upc="${item.upc}" data-idx="${idx}">
-      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px">${item.upc}</td>
+      <td>${upcCell}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${item.name}">
         ${isMatch ? product.name : `<span style="color:var(--red)">${item.name}</span>`}
       </td>
       <td style="text-align:center">
         <input class="qty-input" type="number" min="1" value="${item.qty}"
-          onchange="previewItems[${idx}].qty=+this.value; if(previewItems[${idx}]._autoPrice){previewItems[${idx}].amount=previewItems[${idx}]._autoPrice*+this.value; var c=document.getElementById('amt-${idx}'); if(c){c.firstChild.textContent='$'+previewItems[${idx}].amount.toFixed(2);}} updateChips()">
+          onchange="updateQtyRow(${idx}, +this.value)">
       </td>
-      <td id="amt-${idx}" style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">
-        ${dispAmt > 0 ? `<span>$${dispAmt.toFixed(2)}</span>${autoTag}` : '—'}
+      <td style="text-align:right">
+        <input class="sale-price-input" type="number" min="0" step="0.01"
+          value="${salePrice > 0 ? salePrice.toFixed(2) : ''}"
+          placeholder="0.00" id="sp-${idx}"
+          ${isLocked ? 'readonly' : ''}
+          onchange="updateSalePrice(${idx}, +this.value)">
+      </td>
+      <td id="amt-${idx}" style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">
+        ${dispAmt > 0 ? '$' + dispAmt.toFixed(2) : '—'}
       </td>
       <td>
         <span style="font-size:11px;color:${isMatch?'var(--green)':'var(--fg2)'}">
@@ -918,8 +964,37 @@ function updateChips() {
   const matched = previewItems.filter(i => inventory.find(p => p.barcode === i.upc)).length;
   const totalQty = previewItems.reduce((s, i) => s + i.qty, 0);
   document.getElementById('chipMatched').textContent = matched;
+  document.getElementById('chipUnmatched').textContent = previewItems.length - matched;
   document.getElementById('chipQty').textContent = totalQty;
   document.getElementById('submitBtn').disabled = previewItems.length === 0;
+}
+
+function updateQtyRow(idx, qty) {
+  qty = Math.max(1, qty || 1);
+  previewItems[idx].qty = qty;
+  const sp = previewItems[idx].salePrice || 0;
+  previewItems[idx].amount = sp * qty;
+  const amtEl = document.getElementById('amt-' + idx);
+  if (amtEl) amtEl.textContent = previewItems[idx].amount > 0 ? '$' + previewItems[idx].amount.toFixed(2) : '—';
+  updateChips();
+}
+
+function updateSalePrice(idx, val) {
+  val = Math.max(0, val || 0);
+  val = Math.round(val * 100) / 100;
+  previewItems[idx].salePrice = val;
+  previewItems[idx].amount = val * previewItems[idx].qty;
+  const amtEl = document.getElementById('amt-' + idx);
+  if (amtEl) amtEl.textContent = previewItems[idx].amount > 0 ? '$' + previewItems[idx].amount.toFixed(2) : '—';
+  const spEl = document.getElementById('sp-' + idx);
+  if (spEl) spEl.value = val > 0 ? val.toFixed(2) : '';
+}
+
+function updateBarcode(idx, val) {
+  val = val.trim().replace(/\D/g, '');
+  previewItems[idx].upc = val;
+  previewItems[idx].salePrice = null; // 재매칭 시 가격 재결정
+  renderPreview();
 }
 
 // ── Submit ─────────────────────────────────────────────
@@ -996,7 +1071,7 @@ function showResult(result, saleDate) {
 function clearAll() {
   previewItems = []; manualItems = [];
   document.getElementById('pasteArea').value = '';
-  document.getElementById('previewBody').innerHTML = '<tr><td colspan="5" class="empty">파싱 또는 직접 입력 후 미리보기를 확인하세요</td></tr>';
+  document.getElementById('previewBody').innerHTML = '<tr><td colspan="6" class="empty">파싱 또는 직접 입력 후 미리보기를 확인하세요</td></tr>';
   document.getElementById('chipRow').style.display = 'none';
   document.getElementById('submitBtn').disabled = true;
   document.getElementById('resultPanel').classList.remove('show');
