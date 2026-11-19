@@ -826,6 +826,7 @@ async function handleFiles(files) {
       parsedItems = result.items;
       currentMeta = result.meta;
       renderResult(result);
+      saveDraft();
       hideStatus();
     } catch (err) {
       console.error(err);
@@ -1021,6 +1022,7 @@ function toggleRow(i) {
   chk.checked = parsedItems[i].include;
   btn.textContent = parsedItems[i].include ? '제외' : '포함';
   updateSummary();
+  saveDraft();
 }
 
 function changeQty(i, delta) {
@@ -1042,11 +1044,13 @@ function updateQty(i) {
 function updateSku(i) {
   const inp = document.getElementById('sku-' + i);
   parsedItems[i].sku = inp.value.trim();
+  saveDraft();
 }
 
 function updateDesc(i) {
   const inp = document.getElementById('desc-' + i);
   parsedItems[i].desc = inp.value.trim();
+  saveDraft();
 }
 
 function updateUnitPrice(i) {
@@ -1059,6 +1063,7 @@ function updateUnitPrice(i) {
   parsedItems[i].total = parsedItems[i].qty * val;
   document.getElementById('total-' + i).textContent = '$' + parsedItems[i].total.toFixed(2);
   updateSummary();
+  saveDraft();
 }
 
 function updateSummary() {
@@ -1123,6 +1128,7 @@ async function saveSkuMapping(i) {
 
 function liveMatchUpc(i, val) {
   parsedItems[i].upc = val;
+  saveDraft();
   const badgeCell = document.getElementById('badge-' + i);
   if (!badgeCell) return;
   if (val.length >= 8) {
@@ -1256,6 +1262,7 @@ async function doImport(active) {
     }
 
     // 성공
+    clearDraft();
     document.getElementById('successPanel').classList.add('show');
     document.getElementById('summaryText').textContent = '';
     btn.style.display = 'none';
@@ -1531,8 +1538,16 @@ function showToast(msg, type = 'success') {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+function saveDraft() {
+  try { localStorage.setItem('import_draft', JSON.stringify({ meta: currentMeta, items: parsedItems })); } catch {}
+}
+function clearDraft() {
+  try { localStorage.removeItem('import_draft'); } catch {}
+}
+
 function resetForm() {
   parsedItems = []; currentMeta = {};
+  clearDraft();
   document.getElementById('resultCard').classList.remove('show');
   document.getElementById('successPanel').classList.remove('show');
   document.getElementById('matchLegend').style.display = 'none';
@@ -1731,6 +1746,15 @@ function openNewProductFromModal(i) {
   await Promise.all([loadInventory(), loadSkuMap()]);
   await checkConnection();
   renderHistory();
+  try {
+    const saved = JSON.parse(localStorage.getItem('import_draft') || 'null');
+    if (saved && Array.isArray(saved.items) && saved.items.length > 0) {
+      parsedItems = saved.items;
+      currentMeta = saved.meta || {};
+      renderResult({ meta: currentMeta, items: parsedItems });
+      showToast('📋 임시 저장된 발주서를 불러왔습니다', 'success');
+    }
+  } catch {}
 })();
 </script>
 
