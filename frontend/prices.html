@@ -706,11 +706,11 @@ function onFieldInput(e) {
       delete pendingChanges[id];
     }
 
-    // 판매가 미설정 제품: cost 계산됐으면 자동으로 price도 설정
+    // cost 계산됐으면 판매가도 자동계산 (사용자가 직접 수정하지 않은 경우)
     const ch3 = pendingChanges[id] || {};
     const effectiveCost = ch3.cost !== undefined ? ch3.cost : (p?.cost || 0);
     const margin = VENDOR_MARGIN[p?.vendor] || 0;
-    if (margin > 0 && effectiveCost > 0 && (!p?.price || p?.price <= 0) && ch3.price === undefined) {
+    if (margin > 0 && effectiveCost > 0 && ch3.price === undefined) {
       if (!pendingChanges[id]) pendingChanges[id] = {};
       pendingChanges[id].price = Math.round(effectiveCost / (1 - margin) * 100) / 100;
       const priceEl = document.querySelector(`[data-id="${id}"][data-field="price"]`);
@@ -1142,10 +1142,10 @@ document.getElementById('btnRecalc').addEventListener('click', () => {
       costCount++;
     }
 
-    // 판매가 미설정이면 자동 계산
+    // 판매가 자동 계산
     const margin = VENDOR_MARGIN[p.vendor] || 0;
     const effectiveCost = (pendingChanges[p.id]?.cost ?? autoUnitCost) || p.cost || 0;
-    if (margin > 0 && effectiveCost > 0 && (!p.price || p.price <= 0) && !(pendingChanges[p.id]?.price)) {
+    if (margin > 0 && effectiveCost > 0 && !(pendingChanges[p.id]?.price)) {
       if (!pendingChanges[p.id]) pendingChanges[p.id] = {};
       pendingChanges[p.id].price = Math.round(effectiveCost / (1 - margin) * 100) / 100;
       priceCount++;
