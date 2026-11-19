@@ -899,7 +899,7 @@ function parseConnect(text) {
     const nums = raw.trim().split(/\s+/);
     const unitPrice = nums[nums.length - 2] ? parseFloat(nums[nums.length - 2]) : 0;
 
-    items.push({ sku, upc: '', desc: desc.trim(), qty, unitPrice, total: parseFloat(total), include: true });
+    items.push({ sku, upc: '', desc: cleanDesc(desc), qty, unitPrice, total: parseFloat(total), include: true });
   }
   return { meta, items };
 }
@@ -948,7 +948,9 @@ function parseSleeman(text) {
 }
 
 function cleanDesc(d) {
-  return d.replace(/\s{2,}/g, ' ').trim();
+  return d.replace(/\s{2,}/g, ' ').trim().split(' ').map(w =>
+    /\d/.test(w) ? w : (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  ).join(' ');
 }
 
 /* ═══════════════════════════════════
