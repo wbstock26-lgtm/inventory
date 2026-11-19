@@ -360,6 +360,61 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
 .detail-save-status { font-size: 12px; color: var(--fg2); flex: 1; }
 .save-indicator { display: none; color: var(--green); font-weight: 600; font-size: 12px; }
 
+/* ── Unmatched warning modal ── */
+.unmatched-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 400; padding: 20px;
+}
+.unmatched-modal-backdrop[hidden] { display: none !important; }
+.unmatched-modal {
+  background: var(--surface); border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  padding: 0; width: 100%; max-width: 540px;
+  max-height: 80vh; display: flex; flex-direction: column;
+}
+.unmatched-modal-head {
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+}
+.unmatched-modal-head h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.unmatched-modal-head p  { font-size: 13px; color: var(--fg2); }
+.unmatched-modal-body {
+  overflow-y: auto; flex: 1; padding: 12px 24px;
+}
+.unmatched-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.unmatched-item:last-child { border-bottom: none; }
+.unmatched-item-info { flex: 1; min-width: 0; }
+.unmatched-item-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.unmatched-item-sku  { font-size: 11px; color: var(--fg3); font-family: 'IBM Plex Mono', monospace; }
+.unmatched-btn-reg {
+  padding: 5px 12px; border-radius: 6px; border: 1px solid var(--green);
+  background: var(--green-bg); color: var(--green); font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.unmatched-btn-reg:hover { background: var(--green); color: #fff; }
+.unmatched-btn-skip {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--fg3); font-size: 12px;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.unmatched-btn-skip:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+.unmatched-btn-skip.skipped { background: var(--red-bg); color: var(--red); border-color: var(--red); text-decoration: line-through; opacity: .7; }
+.unmatched-modal-foot {
+  padding: 14px 24px; border-top: 1px solid var(--border);
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+
+/* ── Unmatched footer warning ── */
+.unmatched-warn {
+  display: none; align-items: center; gap: 8px;
+  padding: 8px 14px; background: var(--yellow-bg); border: 1px solid var(--yellow);
+  border-radius: 6px; font-size: 12px; color: var(--yellow); font-weight: 600;
+}
+.unmatched-warn.show { display: flex; }
+
 /* ── Top nav ── */
 .topnav {
   background: var(--surface); border-bottom: 1px solid var(--border);
@@ -495,6 +550,10 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
   </div>
 
   <div class="result-footer" id="resultFooter">
+    <div class="unmatched-warn" id="unmatchedWarn">
+      <span>⚠️</span>
+      <span id="unmatchedWarnText">미등록 제품이 있습니다 — 입고 확인 시 처리 방법을 선택하세요</span>
+    </div>
     <div class="summary-text" id="summaryText"></div>
     <button class="btn btn-secondary" onclick="resetForm()">↩ 취소</button>
     <button class="btn btn-primary" id="importBtn" onclick="confirmImport()">✅ 입고 확인</button>
@@ -962,6 +1021,21 @@ function updateSummary() {
   const totalAmt = active.reduce((s, p) => s + p.total, 0);
   document.getElementById('summaryText').innerHTML =
     `포함 품목 <strong>${active.length}개</strong> · 총 <strong>${totalQty} CS</strong> · 금액 <strong>$${totalAmt.toFixed(2)}</strong>`;
+
+  // 미등록 경고 배너
+  if (typeof getUnmatchedIncludedItems === 'function') {
+    const unmatched = getUnmatchedIncludedItems();
+    const warn = document.getElementById('unmatchedWarn');
+    const warnText = document.getElementById('unmatchedWarnText');
+    if (warn) {
+      if (unmatched.length > 0) {
+        warn.classList.add('show');
+        if (warnText) warnText.textContent = `미등록 제품 ${unmatched.length}개 — 입고 확인 시 처리 방법을 선택하세요`;
+      } else {
+        warn.classList.remove('show');
+      }
+    }
+  }
 }
 
 /* ═══════════════════════════════════
@@ -1050,12 +1124,29 @@ async function confirmImport() {
   const active = parsedItems.filter(p => p.include && p.qty > 0);
   if (!active.length) { showToast('입고할 항목이 없습니다', 'error'); return; }
 
+  // 미등록 항목 확인
+  const unmatched = getUnmatchedIncludedItems();
+  if (unmatched.length) {
+    openUnmatchedModal(() => doImport(active));
+    return;
+  }
+
+  doImport(active);
+}
+
+async function doImport(active) {
   const btn = document.getElementById('importBtn');
   btn.disabled = true;
   btn.textContent = '⏳ 처리 중…';
 
-  const totalQty = active.reduce((s, p) => s + p.qty, 0);
-  const totalAmt = active.reduce((s, p) => s + p.total, 0);
+  // 건너뜀 항목 제외
+  const finalActive = active.filter(item => {
+    const i = parsedItems.indexOf(item);
+    return !_unmatchedSkipSet.has(i);
+  });
+
+  const totalQty = finalActive.reduce((s, p) => s + p.qty, 0);
+  const totalAmt = finalActive.reduce((s, p) => s + p.total, 0);
 
   try {
     // 1. 주문 생성
@@ -1064,7 +1155,7 @@ async function confirmImport() {
       order_no:      currentMeta.orderNo || `IMP-${Date.now()}`,
       order_date:    currentMeta.orderDate || null,
       delivery_date: currentMeta.delivery || null,
-      items: active.map(item => {
+      items: finalActive.map(item => {
         const match = matchProduct(item);
         return {
           supplier_sku: item.sku,
@@ -1111,11 +1202,13 @@ async function confirmImport() {
     btn.style.display = 'none';
 
     // Connect: SKU→바코드 매핑 자동 저장
-    const skuSaved = await autoSaveSkuMappings(active);
+    const skuSaved = await autoSaveSkuMappings(finalActive);
+    const skipped = active.length - finalActive.length;
 
     document.getElementById('successMsg').textContent =
-      `${active.length}개 품목, ${totalQty} CS 입고 완료 · 합계 $${totalAmt.toFixed(2)} · 주문 #${orderId}` +
-      (skuSaved > 0 ? ` · SKU 매핑 ${skuSaved}개 저장` : '');
+      `${finalActive.length}개 품목, ${totalQty} CS 입고 완료 · 합계 $${totalAmt.toFixed(2)} · 주문 #${orderId}` +
+      (skuSaved > 0 ? ` · SKU 매핑 ${skuSaved}개 저장` : '') +
+      (skipped > 0 ? ` · ${skipped}개 미등록 건너뜀` : '');
 
     renderHistory();
     bc.postMessage('stock-updated');
@@ -1482,6 +1575,101 @@ document.getElementById('npConfirm').addEventListener('click', async () => {
   }
 });
 
+/* ═══════════════════════════════════
+   Unmatched items confirmation modal
+══════════════════════════════════ */
+function getUnmatchedIncludedItems() {
+  return parsedItems
+    .map((item, i) => ({ item, i }))
+    .filter(({ item, i }) => {
+      if (!item.include || item.qty <= 0) return false;
+      const match = matchProduct(item);
+      if (match.type !== 'none') return false;
+      // 수동 UPC 입력됐으면 제외
+      const inp = document.getElementById('upc-inp-' + i);
+      if (inp && inp.value.trim().replace(/\D/g, '').length >= 8) return false;
+      return true;
+    });
+}
+
+// _unmatchedSkipSet: 미등록 항목 중 건너뛰기로 처리된 인덱스 집합
+let _unmatchedSkipSet = new Set();
+
+function openUnmatchedModal(onConfirm) {
+  const unmatched = getUnmatchedIncludedItems();
+  if (!unmatched.length) { onConfirm(); return; }
+
+  _unmatchedSkipSet.clear();
+
+  const modal = document.getElementById('unmatchedModal');
+  const list  = document.getElementById('unmatchedList');
+  list.innerHTML = '';
+
+  unmatched.forEach(({ item, i }) => {
+    const div = document.createElement('div');
+    div.className = 'unmatched-item';
+    div.dataset.idx = i;
+    div.innerHTML = `
+      <div class="unmatched-item-info">
+        <div class="unmatched-item-name">${item.desc || '(이름 없음)'}</div>
+        <div class="unmatched-item-sku">SKU: ${item.sku || '-'} · 수량: ${item.qty} CS</div>
+      </div>
+      <button class="unmatched-btn-reg" onclick="openNewProductFromModal(${i})">➕ 신규</button>
+      <button class="unmatched-btn-skip" id="skip-btn-${i}" onclick="toggleUnmatchedSkip(${i})">건너뜀</button>`;
+    list.appendChild(div);
+  });
+
+  modal.hidden = false;
+
+  // 버튼 연결
+  document.getElementById('unmatchedProceed').onclick = () => {
+    modal.hidden = true;
+    onConfirm();
+  };
+  document.getElementById('unmatchedCancel').onclick = () => {
+    modal.hidden = true;
+  };
+  document.getElementById('unmatchedSkipAll').onclick = () => {
+    unmatched.forEach(({ i }) => {
+      _unmatchedSkipSet.add(i);
+      const btn = document.getElementById('skip-btn-' + i);
+      if (btn) btn.classList.add('skipped');
+    });
+    updateUnmatchedProceedBtn();
+  };
+}
+
+function toggleUnmatchedSkip(i) {
+  const btn = document.getElementById('skip-btn-' + i);
+  if (_unmatchedSkipSet.has(i)) {
+    _unmatchedSkipSet.delete(i);
+    btn?.classList.remove('skipped');
+  } else {
+    _unmatchedSkipSet.add(i);
+    btn?.classList.add('skipped');
+  }
+  updateUnmatchedProceedBtn();
+}
+
+function updateUnmatchedProceedBtn() {
+  const unmatched = getUnmatchedIncludedItems();
+  const allHandled = unmatched.every(({ i }) => {
+    const inp = document.getElementById('upc-inp-' + i);
+    const linked = inp && inp.value.trim().replace(/\D/g, '').length >= 8;
+    return linked || _unmatchedSkipSet.has(i);
+  });
+  const proceedBtn = document.getElementById('unmatchedProceed');
+  if (proceedBtn) {
+    proceedBtn.disabled = !allHandled;
+    proceedBtn.title = allHandled ? '' : '미처리 항목을 모두 등록하거나 건너뜀으로 처리하세요';
+  }
+}
+
+function openNewProductFromModal(i) {
+  document.getElementById('unmatchedModal').hidden = true;
+  openNewProductModal(i);
+}
+
 /* Init */
 (async () => {
   await Promise.all([loadInventory(), loadSkuMap()]);
@@ -1489,4 +1677,21 @@ document.getElementById('npConfirm').addEventListener('click', async () => {
   renderHistory();
 })();
 </script>
+
+<!-- Unmatched confirm modal -->
+<div class="unmatched-modal-backdrop" id="unmatchedModal" hidden>
+  <div class="unmatched-modal">
+    <div class="unmatched-modal-head">
+      <h3>⚠️ 미등록 제품 확인 필요</h3>
+      <p>아래 항목은 제품 현황에 등록되지 않은 제품입니다. 신규 등록하거나 건너뜀으로 처리 후 진행하세요.</p>
+    </div>
+    <div class="unmatched-modal-body" id="unmatchedList"></div>
+    <div class="unmatched-modal-foot">
+      <button class="btn-ghost" id="unmatchedCancel" style="margin-right:auto">취소</button>
+      <button class="btn-ghost" id="unmatchedSkipAll">모두 건너뜀</button>
+      <button class="btn-primary" id="unmatchedProceed" disabled>진행</button>
+    </div>
+  </div>
+</div>
+
 </div>
