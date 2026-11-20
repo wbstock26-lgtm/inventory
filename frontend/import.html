@@ -1210,6 +1210,22 @@ async function doImport(active) {
     return !_unmatchedSkipSet.has(i);
   });
 
+  // 신규 등록 대상 수집 (매칭 없고 UPC 있는 항목 → 백엔드에서 자동 생성됨)
+  const newProductItems = finalActive
+    .filter(item => {
+      if (matchProduct(item).type !== 'none') return false;
+      const i = parsedItems.indexOf(item);
+      const inp = document.getElementById('upc-inp-' + i);
+      const upc = (inp ? inp.value.trim().replace(/\D/g, '') : '') || item.upc || '';
+      return upc.length >= 8;
+    })
+    .map(item => {
+      const i = parsedItems.indexOf(item);
+      const inp = document.getElementById('upc-inp-' + i);
+      const upc = (inp ? inp.value.trim().replace(/\D/g, '') : '') || item.upc || '';
+      return { barcode: upc, name: item.desc, vendor: currentMeta.supplier, sku: item.sku || '' };
+    });
+
   const totalQty = finalActive.reduce((s, p) => s + p.qty, 0);
   const totalAmt = finalActive.reduce((s, p) => s + p.total, 0);
 
@@ -1278,7 +1294,15 @@ async function doImport(active) {
 
     renderHistory();
     bc.postMessage('stock-updated');
-    showToast('✅ 입고 처리 완료!', 'success');
+
+    if (newProductItems.length > 0) {
+      try { localStorage.setItem('prices_register_queue', JSON.stringify(newProductItems)); } catch {}
+      document.getElementById('successMsg').textContent += ` · 신규 제품 ${newProductItems.length}개 판매가 등록 필요`;
+      showToast(`✅ 입고 완료! 신규 제품 ${newProductItems.length}개 — 판매가 관리로 이동합니다…`, 'success');
+      setTimeout(() => { location.href = '/prices.html'; }, 2500);
+    } else {
+      showToast('✅ 입고 처리 완료!', 'success');
+    }
 
   } catch (err) {
     showToast('❌ ' + err.message, 'error');

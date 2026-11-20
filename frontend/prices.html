@@ -75,6 +75,23 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 .btn-save-all:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Summary bar */
+/* 신규 제품 등록 패널 */
+.register-panel {
+  background: linear-gradient(135deg, #1a56e8, #0ea5e9);
+  color: #fff; border-radius: 10px; padding: 14px 20px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  box-shadow: 0 4px 16px rgba(26,86,232,.35);
+}
+.register-panel-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.register-counter { font-size: 11px; font-weight: 700; opacity: .85; text-transform: uppercase; letter-spacing: .06em; }
+.register-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.register-hint { font-size: 12px; opacity: .75; }
+.register-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.register-actions button { padding: 8px 18px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .1s; }
+.register-actions button:hover { opacity: .85; }
+#registerSkipBtn { background: rgba(255,255,255,.18); color: #fff; }
+#registerNextBtn { background: #fff; color: #1a56e8; }
+.register-highlight td { background: rgba(26,86,232,.08) !important; }
 .summary-bar {
   display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap;
 }
@@ -328,6 +345,19 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
     <div class="sum-chip">전체 <strong id="sumTotal">—</strong></div>
     <div class="sum-chip" style="color:var(--green)">설정완료 <strong id="sumSet">—</strong></div>
     <div class="sum-chip" style="color:var(--red)">미설정 <strong id="sumUnset">—</strong></div>
+  </div>
+
+  <!-- 신규 제품 등록 패널 -->
+  <div id="registerPanel" class="register-panel" hidden>
+    <div class="register-panel-info">
+      <span class="register-counter" id="registerCounter"></span>
+      <span class="register-name" id="registerName"></span>
+      <span class="register-hint">판매가를 입력하고 Enter 또는 저장 버튼을 누르세요</span>
+    </div>
+    <div class="register-actions">
+      <button id="registerSkipBtn">건너뜀</button>
+      <button id="registerNextBtn">다음 →</button>
+    </div>
   </div>
 
   <!-- Toolbar -->
@@ -1342,19 +1372,99 @@ function startDeptEdit(badge, productId) {
   sel.addEventListener('keydown', e => { if (e.key === 'Escape') { sel.replaceWith(badge); } });
 }
 
-// 저장된 검색어 복원
-if (searchQ) {
-  const el = document.getElementById('searchInput');
-  if (el) el.value = searchQ;
-}
-// 저장된 필터 버튼 활성화 복원
-document.querySelectorAll('.filter-tab').forEach(b => {
-  b.classList.toggle('active', b.dataset.filter === activeFilter);
-});
-document.getElementById('btnImportConnectSku').style.display =
-  activeFilter === '01' ? '' : 'none';
+// ── 신규 제품 등록 큐 ────────────────────────────────────────────────
+let _regQueue = [];
+let _regIdx = 0;
 
-loadProducts();
+function _regApply() {
+  if (_regIdx >= _regQueue.length) { _regFinish(); return; }
+  const item = _regQueue[_regIdx];
+  document.getElementById('registerCounter').textContent =
+    `🆕 신규 제품 등록  ${_regIdx + 1} / ${_regQueue.length}`;
+  document.getElementById('registerName').textContent = item.name;
+  document.getElementById('registerPanel').hidden = false;
+
+  // 해당 제품 검색 필터 적용
+  const val = item.barcode || item.name;
+  const inp = document.getElementById('searchInput');
+  if (inp) inp.value = val;
+  searchQ = val;
+  // 필터를 전체로
+  activeFilter = 'all';
+  document.querySelectorAll('.filter-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.filter === 'all'));
+  document.getElementById('btnImportConnectSku').style.display = 'none';
+  renderTable();
+
+  // 행 하이라이트
+  setTimeout(() => {
+    document.querySelectorAll('.register-highlight').forEach(r => r.classList.remove('register-highlight'));
+    if (item.barcode) {
+      const target = allProducts.find(p => p.barcode === item.barcode);
+      if (target) {
+        const row = document.getElementById('row-' + target.id);
+        if (row) {
+          row.classList.add('register-highlight');
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+  }, 150);
+}
+
+function _regFinish() {
+  try { localStorage.removeItem('prices_register_queue'); } catch {}
+  document.getElementById('registerPanel').hidden = true;
+  document.querySelectorAll('.register-highlight').forEach(r => r.classList.remove('register-highlight'));
+  searchQ = '';
+  const inp = document.getElementById('searchInput');
+  if (inp) inp.value = '';
+  try { localStorage.removeItem('prices_search'); } catch {}
+  activeFilter = 'all';
+  document.querySelectorAll('.filter-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.filter === 'all'));
+  document.getElementById('btnImportConnectSku').style.display = 'none';
+  renderTable();
+  showToast('✅ 모든 신규 제품 등록 완료!', false);
+}
+
+document.getElementById('registerNextBtn').addEventListener('click', () => {
+  _regIdx++;
+  _regApply();
+});
+document.getElementById('registerSkipBtn').addEventListener('click', () => {
+  _regIdx++;
+  _regApply();
+});
+
+function initRegisterQueue() {
+  try {
+    const raw = localStorage.getItem('prices_register_queue');
+    if (!raw) return;
+    _regQueue = JSON.parse(raw) || [];
+    if (!_regQueue.length) return;
+    _regIdx = 0;
+    _regApply();
+  } catch {}
+}
+
+// 저장된 검색어 복원 (등록 큐가 없을 때만)
+(function() {
+  try {
+    if (localStorage.getItem('prices_register_queue')) return;
+  } catch {}
+  if (searchQ) {
+    const el = document.getElementById('searchInput');
+    if (el) el.value = searchQ;
+  }
+  document.querySelectorAll('.filter-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === activeFilter);
+  });
+  document.getElementById('btnImportConnectSku').style.display =
+    activeFilter === '01' ? '' : 'none';
+})();
+
+loadProducts().then(() => initRegisterQueue());
 
 // ── Connect SKU Import ───────────────────────────────────────────────
 let _skuImportItems = [];
