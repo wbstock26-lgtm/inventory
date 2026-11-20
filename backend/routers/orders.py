@@ -32,6 +32,13 @@ def _get_or_create_product(db: Session, supplier: str, item_no: Optional[str],
     # 바코드 없으면 생성 불가 (중복 방지 불가)
     if not barcode:
         return None
+    # 비활성화(소프트삭제)된 제품도 포함해 중복 확인
+    existing = db.query(models.Product).filter(
+        models.Product.barcode == barcode
+    ).first()
+    if existing:
+        return existing
+
     new_product = models.Product(
         barcode=barcode,
         name=name,

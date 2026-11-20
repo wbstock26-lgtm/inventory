@@ -492,8 +492,8 @@ const bc = new BroadcastChannel('inventory-update');
 
 let allProducts = [];
 let pendingChanges = {}; // {id: {price, stock, cost}}
-let activeFilter = 'all';
-let searchQ = '';
+let activeFilter = (() => { try { return localStorage.getItem('prices_filter') || 'all'; } catch { return 'all'; } })();
+let searchQ = (() => { try { return localStorage.getItem('prices_search') || ''; } catch { return ''; } })();
 const barcodeTimers = {}; // debounce timers keyed by product id
 
 async function api(path, opts) {
@@ -1157,6 +1157,7 @@ document.querySelectorAll('.filter-tab').forEach(btn => {
     document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeFilter = btn.dataset.filter;
+    try { localStorage.setItem('prices_filter', activeFilter); } catch {}
     document.getElementById('btnImportConnectSku').style.display =
       btn.dataset.filter === '01' ? '' : 'none';
     renderTable();
@@ -1166,6 +1167,7 @@ document.querySelectorAll('.filter-tab').forEach(btn => {
 // Search
 document.getElementById('searchInput').addEventListener('input', e => {
   searchQ = e.target.value.trim();
+  try { localStorage.setItem('prices_search', searchQ); } catch {}
   renderTable();
 });
 
@@ -1339,6 +1341,18 @@ function startDeptEdit(badge, productId) {
   sel.addEventListener('blur', () => setTimeout(commit, 100));
   sel.addEventListener('keydown', e => { if (e.key === 'Escape') { sel.replaceWith(badge); } });
 }
+
+// 저장된 검색어 복원
+if (searchQ) {
+  const el = document.getElementById('searchInput');
+  if (el) el.value = searchQ;
+}
+// 저장된 필터 버튼 활성화 복원
+document.querySelectorAll('.filter-tab').forEach(b => {
+  b.classList.toggle('active', b.dataset.filter === activeFilter);
+});
+document.getElementById('btnImportConnectSku').style.display =
+  activeFilter === '01' ? '' : 'none';
 
 loadProducts();
 
