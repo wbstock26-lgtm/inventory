@@ -1364,6 +1364,24 @@ function invShowToast(msg, isErr) {
   t._timer = setTimeout(() => { t.className = ''; }, 2500);
 }
 
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return Promise.resolve();
+  } catch (e) {
+    return Promise.reject(e);
+  }
+}
+
 function invCtxCopyRow() {
   if (!_invCtxProduct) return;
   const p = _invCtxProduct;
@@ -1378,7 +1396,7 @@ function invCtxCopyRow() {
     total !== '0.00' ? total : '',
     p.price > 0 ? p.price.toFixed(2) : '',
   ].join('\t');
-  navigator.clipboard.writeText(text)
+  copyToClipboard(text)
     .then(() => invShowToast('✅ 제품 전체 복사됨', false))
     .catch(() => invShowToast('복사 실패 (권한 없음)', true));
   invCtxMenu.style.display = 'none';
@@ -1386,7 +1404,7 @@ function invCtxCopyRow() {
 
 function invCtxCopyBarcode() {
   if (!_invCtxProduct?.barcode) { invShowToast('바코드 없음', true); return; }
-  navigator.clipboard.writeText(_invCtxProduct.barcode)
+  copyToClipboard(_invCtxProduct.barcode)
     .then(() => invShowToast('✅ 바코드 복사됨', false))
     .catch(() => invShowToast('복사 실패', true));
   invCtxMenu.style.display = 'none';
@@ -1394,7 +1412,7 @@ function invCtxCopyBarcode() {
 
 function invCtxCopyName() {
   if (!_invCtxProduct) return;
-  navigator.clipboard.writeText(_invCtxProduct.name)
+  copyToClipboard(_invCtxProduct.name)
     .then(() => invShowToast('✅ 제품명 복사됨', false))
     .catch(() => invShowToast('복사 실패', true));
   invCtxMenu.style.display = 'none';
