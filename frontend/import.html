@@ -883,9 +883,9 @@ function parseSupplier(text, filename) {
 function parseConnect(text) {
   const meta = {
     supplier: 'Connect',
-    orderNo:  (text.match(/Order Number[–\-]\s*([\w\s]+)/i) || [])[1]?.trim() || '—',
-    orderDate:(text.match(/Order Date[–\-]\s*([\d/]+)/i) || [])[1]?.trim() || '—',
-    delivery: (text.match(/Invoice Date[–\-]\s*([\d/]+)/i) || [])[1]?.trim() || '—',
+    orderNo:  (text.match(/Order Number\s*[–\-]\s*(\d+\s*(?:SW)?)/i) || [])[1]?.trim() || '—',
+    orderDate:(text.match(/Order Date\s*[–\-]\s*([\d/]+)/i) || [])[1]?.trim() || '—',
+    delivery: (text.match(/Invoice Date\s*[–\-]\s*([\d/]+)/i) || [])[1]?.trim() || '—',
   };
 
   const items = [];
@@ -911,9 +911,9 @@ function parseConnect(text) {
 function parseBDL(text) {
   const meta = {
     supplier: 'BDL',
-    orderNo:  (text.match(/Order Number\s+([\d]+)/i) || [])[1]?.trim() || '—',
-    orderDate:(text.match(/Order Date\s+([\d\-]+)/i) || [])[1]?.trim() || '—',
-    delivery: (text.match(/Delivery Date\s+([\d\-]+)/i) || [])[1]?.trim() || '—',
+    orderNo:  (text.match(/(\d{5,})\s*Order Number/i) || [])[1]?.trim() || '—',
+    orderDate:(text.match(/([\d]{1,2}-\w+-\d{4})\s*Order Date/i) || [])[1]?.trim() || '—',
+    delivery: (text.match(/([\d]{1,2}-\w+-\d{4})\s*Delivery Date/i) || [])[1]?.trim() || '—',
   };
 
   const items = [];
