@@ -23,11 +23,31 @@ def _resolve_product(db: Session, supplier: str, item_no: Optional[str],
     return find_product(db, barcode=barcode, name=name)
 
 
+def _ensure_sku_mapping(db: Session, supplier: str, item_no: str,
+                         barcode: Optional[str], product_id: int) -> None:
+    """SKU 매핑이 없으면 저장"""
+    existing_map = db.query(models.SupplierSkuMap).filter(
+        models.SupplierSkuMap.supplier == supplier,
+        models.SupplierSkuMap.item_no == item_no
+    ).first()
+    if not existing_map:
+        db.add(models.SupplierSkuMap(
+            supplier=supplier, item_no=item_no,
+            barcode=barcode, product_id=product_id
+        ))
+    elif existing_map.product_id is None:
+        existing_map.product_id = product_id
+
+
 def _get_or_create_product(db: Session, supplier: str, item_no: Optional[str],
                             barcode: Optional[str], name: str, unit_price: float) -> Optional[models.Product]:
-    """기존 제품 조회, 없으면 바코드가 있을 때 자동 생성"""
+    """기존 제품 조회, 없으면 바코드가 있을 때 자동 생성. SKU 매핑도 항상 보장."""
     product = _resolve_product(db, supplier, item_no, barcode, name)
     if product:
+        # 기존 제품이라도 SKU 매핑이 없으면 저장
+        if item_no:
+            _ensure_sku_mapping(db, supplier, item_no,
+                                barcode or product.barcode, product.id)
         return product
     # 바코드 없으면 생성 불가 (중복 방지 불가)
     if not barcode:
@@ -37,6 +57,8 @@ def _get_or_create_product(db: Session, supplier: str, item_no: Optional[str],
         models.Product.barcode == barcode
     ).first()
     if existing:
+        if item_no:
+            _ensure_sku_mapping(db, supplier, item_no, barcode, existing.id)
         return existing
 
     new_product = models.Product(
@@ -48,17 +70,8 @@ def _get_or_create_product(db: Session, supplier: str, item_no: Optional[str],
     )
     db.add(new_product)
     db.flush()
-    # SKU 매핑 자동 저장
     if item_no:
-        existing_map = db.query(models.SupplierSkuMap).filter(
-            models.SupplierSkuMap.supplier == supplier,
-            models.SupplierSkuMap.item_no == item_no
-        ).first()
-        if not existing_map:
-            db.add(models.SupplierSkuMap(
-                supplier=supplier, item_no=item_no,
-                barcode=barcode, product_id=new_product.id
-            ))
+        _ensure_sku_mapping(db, supplier, item_no, barcode, new_product.id)
     return new_product
 
 
