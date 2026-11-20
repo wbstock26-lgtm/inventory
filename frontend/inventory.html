@@ -516,8 +516,8 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
           <span style="color:var(--fg3);font-size:13px">🔍</span>
           <input id="invSearch" type="text" placeholder="제품명, UPC…"
             style="border:none;outline:none;background:transparent;color:var(--fg);font-size:12px;width:100%"
-            oninput="renderProducts(_lastProducts)">
-          <button id="invSearchClear" onclick="document.getElementById('invSearch').value='';renderProducts(_lastProducts)"
+            oninput="lsSet('inv_search',this.value);renderProducts(_lastProducts)">
+          <button id="invSearchClear" onclick="document.getElementById('invSearch').value='';lsSet('inv_search','');renderProducts(_lastProducts)"
             style="border:none;background:none;cursor:pointer;color:var(--fg3);font-size:14px;padding:0;line-height:1;display:none">✕</button>
         </div>
         <span style="font-size:12px;color:var(--fg2)" id="productCount">—개 제품</span>
@@ -750,7 +750,7 @@ function renderOrders(orders) {
 
 const DEPT_MAP = { Connect: '01', BDL: '21', Sleeman: '03' };
 let _lastProducts = [];
-let _activeDept = '';
+let _activeDept = lsGet('inv_activeDept', '');
 
 function onSortChange() {
   renderProducts(_lastProducts);
@@ -764,6 +764,7 @@ function toggleNameSort() {
 
 function filterDept(dept) {
   _activeDept = dept;
+  lsSet('inv_activeDept', dept);
   document.querySelectorAll('.dept-filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.dept === dept);
   });
@@ -895,7 +896,18 @@ function renderMovements(movements) {
   }).join('');
 }
 
-loadAll();
+// 페이지 로드 시 검색어 복원 (renderProducts가 읽기 전에)
+(function() {
+  const saved = lsGet('inv_search', '');
+  if (saved) { const el = document.getElementById('invSearch'); if (el) el.value = saved; }
+})();
+
+loadAll().then(() => {
+  // 디파트 필터 버튼 활성화 상태 복원
+  document.querySelectorAll('.dept-filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.dept === _activeDept);
+  });
+});
 
 // ── Barcode 우클릭 팝업 ────────────────────────
 async function showBarcodePopup(e, productId) {
