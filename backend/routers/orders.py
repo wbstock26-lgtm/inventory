@@ -255,6 +255,47 @@ def update_order_item(order_id: int, item_id: int, body: schemas.OrderItemUpdate
     return {"ok": True, "item_id": item_id, "qty_received": new_qty, "unit_price": new_price}
 
 
+@router.delete("/{order_id}", status_code=204)
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    """발주 삭제 — 입고완료 상태이면 재고이동(stock_movements)도 함께 롤백"""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(404, "주문을 찾을 수 없습니다")
+
+    if order.status == "received":
+        # 이 주문으로 생성된 stock_movements 삭제 후 이후 이동 보정
+        movements = (
+            db.query(models.StockMovement)
+            .filter(
+                models.StockMovement.order_no == order.order_no,
+                models.StockMovement.type == "in",
+            )
+            .all()
+        )
+        for mv in movements:
+            delta = mv.quantity
+            # 이 이동 이후의 같은 제품 이동 stock_before/after를 delta만큼 감소
+            later = (
+                db.query(models.StockMovement)
+                .filter(
+                    models.StockMovement.product_id == mv.product_id,
+                    models.StockMovement.id > mv.id,
+                )
+                .order_by(models.StockMovement.id)
+                .all()
+            )
+            for lm in later:
+                lm.stock_before -= delta
+                lm.stock_after  -= delta
+            db.delete(mv)
+
+    # 주문 항목 및 주문 삭제
+    for item in order.items:
+        db.delete(item)
+    db.delete(order)
+    db.commit()
+
+
 @router.get("/{order_id}")
 def get_order(order_id: int, db: Session = Depends(get_db)):
     order = db.query(models.Order).filter(models.Order.id == order_id).first()

@@ -663,6 +663,7 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
         수정할 항목의 수량이나 단가를 변경한 후 저장하세요.
         <span class="save-indicator" id="saveIndicator">✅ 저장 완료</span>
       </div>
+      <button class="btn" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red)" onclick="deleteOrder()">🗑 발주 삭제</button>
       <button class="btn btn-secondary" onclick="closeDetail()">닫기</button>
       <button class="btn btn-primary" id="detailSaveBtn" onclick="saveDetailChanges()">💾 변경사항 저장</button>
     </div>
@@ -1507,6 +1508,25 @@ async function saveDetailChanges() {
     showToast(`❌ ${errors}개 항목 저장 실패`, 'error');
   } else {
     showToast('변경된 내용이 없습니다', 'error');
+  }
+}
+
+async function deleteOrder() {
+  if (!currentOrderId) return;
+  const orderNo = document.getElementById('detailOrderNo').textContent;
+  if (!confirm(`발주 ${orderNo}를 삭제하시겠습니까?\n입고완료 상태이면 재고도 함께 롤백됩니다.`)) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/orders/${currentOrderId}`, { method: 'DELETE' });
+    if (!res.ok && res.status !== 204) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || res.status);
+    }
+    document.getElementById('detailOverlay').classList.remove('show');
+    showToast(`✅ 발주 ${orderNo} 삭제 완료`, 'success');
+    renderHistory();
+    new BroadcastChannel('inventory-update').postMessage('stock-updated');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
   }
 }
 
