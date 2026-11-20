@@ -307,6 +307,9 @@ body {
   transition: background .1s;
 }
 .editable-cell:hover { background: var(--accent-bg); color: var(--accent); }
+.barcode-cell[draggable="true"] { cursor: grab; }
+.barcode-cell[draggable="true"]:active { cursor: grabbing; }
+.barcode-cell.drag-over { outline: 2px dashed var(--accent); background: var(--accent-bg); border-radius: 4px; }
 .sku-label {
   display: inline-block;
   font-family: 'IBM Plex Mono', monospace;
@@ -828,7 +831,13 @@ function renderProducts(products) {
       <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})">${dept}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2)"
           title="선택 후 Ctrl+C: 복사 / 더블클릭: 편집 / 우클릭: 팝업 메뉴" oncontextmenu="showBarcodePopup(event,${p.id})">
-        <span class="editable-cell" ondblclick="startEdit(this,${p.id},'barcode')" style="font-family:inherit;font-size:inherit;user-select:text;cursor:text">${p.barcode || '—'}</span>
+        <span class="editable-cell barcode-cell" draggable="true"
+          ondragstart="barcodeDragStart(event,'${p.barcode||''}')"
+          ondragover="barcodeDragOver(event)"
+          ondragleave="barcodeDragLeave(event)"
+          ondrop="barcodeDrop(event,${p.id},this)"
+          ondblclick="startEdit(this,${p.id},'barcode')"
+          style="font-family:inherit;font-size:inherit;user-select:text">${p.barcode || '—'}</span>
       </td>
       <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif;cursor:text"
           onclick="if(event.target===this||event.target.classList.contains('sku-label')){const s=this.querySelector('.name-cell');if(s)startEdit(s,${p.id},'name');}">
@@ -1362,6 +1371,49 @@ function invShowToast(msg, isErr) {
   t.textContent = msg; t.className = 'show' + (isErr ? ' error' : '');
   clearTimeout(t._timer);
   t._timer = setTimeout(() => { t.className = ''; }, 2500);
+}
+
+let _dragBarcode = '';
+
+function barcodeDragStart(e, barcode) {
+  _dragBarcode = barcode;
+  e.dataTransfer.setData('text/plain', barcode);
+  e.dataTransfer.effectAllowed = 'copy';
+}
+
+function barcodeDragOver(e) {
+  if (!_dragBarcode) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function barcodeDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function barcodeDrop(e, productId, span) {
+  e.preventDefault();
+  span.classList.remove('drag-over');
+  const barcode = _dragBarcode || e.dataTransfer.getData('text/plain');
+  _dragBarcode = '';
+  if (!barcode) return;
+  try {
+    const r = await fetch(`${API_BASE}/api/products/${productId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ barcode }),
+      keepalive: true
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const updated = await r.json();
+    span.textContent = updated.barcode || '—';
+    const prod = (_lastProducts || []).find(p => p.id === productId);
+    if (prod) prod.barcode = updated.barcode;
+    invShowToast('✅ 바코드 복사됨', false);
+  } catch {
+    invShowToast('❌ 저장 실패', true);
+  }
 }
 
 function copyBarcodeCell(span) {
