@@ -416,9 +416,14 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
   <div class="modal-backdrop" id="addModal" hidden>
     <div class="modal">
       <div class="modal-title">➕ 새 제품 등록</div>
+      <input type="hidden" id="modalProductId">
       <div class="form-row">
         <label class="form-label" for="modalUpc">UPC 바코드 (선택)</label>
         <input class="form-input" id="modalUpc" type="text" placeholder="예: 062067012345" maxlength="20">
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="modalSku">SKU (공급업체)</label>
+        <input class="form-input" id="modalSku" type="text" placeholder="예: 12345-A" maxlength="100">
       </div>
       <div class="form-row">
         <label class="form-label" for="modalName">제품명 <span style="color:var(--red)">*</span></label>
@@ -1247,51 +1252,97 @@ document.getElementById('btnRecalc').addEventListener('click', () => {
 // Add Product Modal
 const addModal = document.getElementById('addModal');
 document.getElementById('btnAddProduct').addEventListener('click', () => {
+  document.getElementById('modalProductId').value = '';
   document.getElementById('modalUpc').value = '';
+  document.getElementById('modalSku').value = '';
   document.getElementById('modalName').value = '';
   document.getElementById('modalUnit').value = '';
   document.getElementById('modalDelivery').value = '';
   document.getElementById('modalPrice').value = '';
+  document.querySelector('#addModal .modal-title').textContent = '➕ 새 제품 등록';
+  document.getElementById('modalConfirm').textContent = '등록';
   addModal.hidden = false;
   setTimeout(() => document.getElementById('modalUpc').focus(), 50);
 });
-document.getElementById('modalCancel').addEventListener('click', () => { addModal.hidden = true; });
+document.getElementById('modalCancel').addEventListener('click', () => {
+  addModal.hidden = true;
+  // If in register flow, cancelling = skip to next
+  if (document.getElementById('modalProductId').value && _regQueue.length > 0) {
+    _regIdx++;
+    _regApply();
+  }
+});
 addModal.addEventListener('click', e => { if (e.target === addModal) addModal.hidden = true; });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') addModal.hidden = true; });
 
 document.getElementById('modalConfirm').addEventListener('click', async () => {
   const name = document.getElementById('modalName').value.trim();
   if (!name) { document.getElementById('modalName').focus(); showToast('제품명을 입력하세요', true); return; }
+  const productId = document.getElementById('modalProductId').value.trim();
   const barcode = document.getElementById('modalUpc').value.trim() || null;
+  const sku = document.getElementById('modalSku').value.trim();
   const unit = parseFloat(document.getElementById('modalUnit').value) || 0;
   const delivery_price = parseFloat(document.getElementById('modalDelivery').value) || 0;
   const price = parseFloat(document.getElementById('modalPrice').value) || 0;
-  // 단가: unit과 입고가 모두 있을 때 Connect 공식으로 계산 (DEPT 변경 시 재계산됨)
   const cost = (unit > 0 && delivery_price > 0) ? Math.round(delivery_price / unit * 100) / 100 : 0;
 
   const btn = document.getElementById('modalConfirm');
   btn.disabled = true;
-  btn.textContent = '등록 중…';
+  btn.textContent = '저장 중…';
   try {
-    await api('/api/products', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name, barcode, unit, delivery_price, cost, price }),
-    });
+    let savedId = productId ? parseInt(productId) : null;
+    let savedVendor = '';
+    if (productId) {
+      // Update existing product (register flow)
+      const updated = await api(`/api/products/${productId}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, barcode, unit, delivery_price, cost, price }),
+      });
+      savedVendor = (updated && updated.vendor) || '';
+    } else {
+      // Create new product
+      const created = await api('/api/products', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, barcode, unit, delivery_price, cost, price }),
+      });
+      savedId = (created && created.id) || null;
+      savedVendor = (created && created.vendor) || '';
+    }
+    // Save SKU if provided
+    if (sku && savedId) {
+      const queueItem = _regQueue[_regIdx];
+      const vendor = savedVendor || (queueItem && queueItem.vendor) || '';
+      try {
+        await api('/api/sku-map', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ supplier: vendor, item_no: sku, product_id: savedId, barcode: barcode || null }),
+        });
+        if (!window._skuMap) window._skuMap = {};
+        window._skuMap[savedId] = sku;
+      } catch {}
+    }
     addModal.hidden = true;
-    showToast(`"${name}" 등록됐습니다`, false);
+    showToast(`"${name}" 저장됐습니다`, false);
     await loadProducts();
-    // scroll to new product if searchable
-    document.getElementById('searchInput').value = name.slice(0, 20);
-    searchQ = name.slice(0, 20);
-    activeFilter = 'all';
-    document.querySelectorAll('.filter-tab').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
-    renderTable();
+    // If in register flow, advance to next
+    if (productId && _regQueue.length > 0) {
+      _regIdx++;
+      _regApply();
+    } else {
+      document.getElementById('searchInput').value = name.slice(0, 20);
+      searchQ = name.slice(0, 20);
+      activeFilter = 'all';
+      document.querySelectorAll('.filter-tab').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
+      renderTable();
+    }
   } catch (err) {
-    showToast(`등록 실패: ${err.message}`, true);
+    showToast(`저장 실패: ${err.message}`, true);
   } finally {
     btn.disabled = false;
-    btn.textContent = '등록';
+    btn.textContent = productId ? '저장' : '등록';
   }
 });
 
@@ -1383,33 +1434,24 @@ function _regApply() {
     `🆕 신규 제품 등록  ${_regIdx + 1} / ${_regQueue.length}`;
   document.getElementById('registerName').textContent = item.name;
   document.getElementById('registerPanel').hidden = false;
-
-  // 해당 제품 검색 필터 적용
-  const val = item.barcode || item.name;
-  const inp = document.getElementById('searchInput');
-  if (inp) inp.value = val;
-  searchQ = val;
-  // 필터를 전체로
-  activeFilter = 'all';
-  document.querySelectorAll('.filter-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.filter === 'all'));
   document.getElementById('btnImportConnectSku').style.display = 'none';
-  renderTable();
 
-  // 행 하이라이트
-  setTimeout(() => {
-    document.querySelectorAll('.register-highlight').forEach(r => r.classList.remove('register-highlight'));
-    if (item.barcode) {
-      const target = allProducts.find(p => p.barcode === item.barcode);
-      if (target) {
-        const row = document.getElementById('row-' + target.id);
-        if (row) {
-          row.classList.add('register-highlight');
-          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }
-  }, 150);
+  // Find existing product by barcode (created during import)
+  const existing = item.barcode ? allProducts.find(p => p.barcode === item.barcode) : null;
+
+  // Pre-fill modal
+  document.getElementById('modalProductId').value = existing ? existing.id : '';
+  document.getElementById('modalUpc').value = item.barcode || '';
+  document.getElementById('modalSku').value = item.sku || '';
+  document.getElementById('modalName').value = item.name || '';
+  document.getElementById('modalUnit').value = '';
+  document.getElementById('modalDelivery').value = item.unit_price > 0 ? item.unit_price : '';
+  document.getElementById('modalPrice').value = '';
+  document.querySelector('#addModal .modal-title').textContent =
+    `✏️ 신규 제품 정보 입력  (${_regIdx + 1}/${_regQueue.length})`;
+  document.getElementById('modalConfirm').textContent = '저장';
+  addModal.hidden = false;
+  setTimeout(() => document.getElementById('modalUnit').focus(), 50);
 }
 
 function _regFinish() {

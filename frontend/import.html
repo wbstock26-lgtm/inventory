@@ -366,6 +366,12 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
 }
 .edit-inp:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
 .edit-inp.changed { border-color: var(--yellow); background: var(--yellow-bg); }
+.detail-qty-inp {
+  background: transparent; border-color: transparent; border-bottom: 1px dashed var(--border);
+  border-radius: 0; text-align: center; color: var(--fg); width: 60px;
+}
+.detail-qty-inp:hover { border-bottom-color: var(--fg2); }
+.detail-qty-inp:focus { border-color: var(--accent) !important; background: var(--surface); border-radius: 4px; outline: 2px solid var(--accent); outline-offset: -1px; }
 .detail-footer {
   padding: 12px 20px; border-top: 1px solid var(--border); flex-shrink: 0;
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -643,9 +649,8 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
               <th>SKU</th>
               <th>바코드</th>
               <th>제품명</th>
-              <th style="text-align:center">주문수량</th>
-              <th style="text-align:center">입고수량</th>
-              <th style="text-align:right">단가</th>
+              <th style="text-align:center">수량 ✏️</th>
+              <th style="text-align:right">단가 ✏️</th>
               <th style="text-align:right">합계</th>
             </tr>
           </thead>
@@ -1223,7 +1228,7 @@ async function doImport(active) {
       const i = parsedItems.indexOf(item);
       const inp = document.getElementById('upc-inp-' + i);
       const upc = (inp ? inp.value.trim().replace(/\D/g, '') : '') || item.upc || '';
-      return { barcode: upc, name: item.desc, vendor: currentMeta.supplier, sku: item.sku || '' };
+      return { barcode: upc, name: item.desc, vendor: currentMeta.supplier, sku: item.sku || '', unit_price: item.unitPrice || 0 };
     });
 
   const totalQty = finalActive.reduce((s, p) => s + p.qty, 0);
@@ -1375,17 +1380,16 @@ async function showOrderDetail(orderId) {
             : (item.barcode || '—')}
         </td>
         <td style="font-weight:500;max-width:200px">${item.name}</td>
-        <td style="text-align:center;color:var(--fg2)">${item.qty_ordered}</td>
         <td style="text-align:center">
-          <input type="number" class="edit-inp" id="dqty-${i}" value="${item.qty_received}" min="0"
-            oninput="markChanged(${i},'qty')">
+          <input type="number" class="edit-inp detail-qty-inp" id="dqty-${i}" value="${item.qty_ordered}" min="0"
+            title="수량 수정 가능" oninput="markChanged(${i},'qty')">
         </td>
         <td style="text-align:right">
           <input type="number" class="edit-inp" id="dprice-${i}" value="${item.unit_price.toFixed(2)}" min="0" step="0.01"
             oninput="markChanged(${i},'price')">
         </td>
         <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600" id="dtotal-${i}">
-          $${(item.qty_received * item.unit_price).toFixed(2)}
+          $${(item.qty_ordered * item.unit_price).toFixed(2)}
         </td>
       </tr>
     `).join('');
