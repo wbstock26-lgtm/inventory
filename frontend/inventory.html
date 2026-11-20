@@ -1373,21 +1373,23 @@ function copyBarcodeCell(span) {
 }
 
 function copyToClipboard(text) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    return navigator.clipboard.writeText(text);
-  }
+  // execCommand를 먼저 시도 (HTTP 환경에서도 안정적)
   try {
     const ta = document.createElement('textarea');
     ta.value = text;
-    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;font-size:1px';
     document.body.appendChild(ta);
+    ta.focus();
     ta.select();
-    document.execCommand('copy');
+    const ok = document.execCommand('copy');
     document.body.removeChild(ta);
-    return Promise.resolve();
-  } catch (e) {
-    return Promise.reject(e);
+    if (ok) return Promise.resolve();
+  } catch {}
+  // 실패 시 Clipboard API fallback
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
   }
+  return Promise.reject(new Error('복사 불가'));
 }
 
 function invCtxCopyRow() {
