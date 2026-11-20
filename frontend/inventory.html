@@ -836,8 +836,9 @@ function renderProducts(products) {
           ondragover="barcodeDragOver(event)"
           ondragleave="barcodeDragLeave(event)"
           ondrop="barcodeDrop(event,${p.id},this)"
+          onclick="${!p.barcode ? `startEdit(this,${p.id},'barcode')` : ''}"
           ondblclick="startEdit(this,${p.id},'barcode')"
-          style="font-family:inherit;font-size:inherit;user-select:text">${p.barcode || '—'}</span>
+          style="font-family:inherit;font-size:inherit;user-select:text;${!p.barcode?'cursor:text;color:var(--fg3)':''}">${p.barcode || '—'}</span>
       </td>
       <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif;cursor:text"
           onclick="if(event.target===this||event.target.classList.contains('sku-label')){const s=this.querySelector('.name-cell');if(s)startEdit(s,${p.id},'name');}">

@@ -544,14 +544,12 @@ function renderTable() {
     <tr id="row-${p.id}" class="${isDirty ? 'dirty' : ''}">
       <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})" title="클릭해서 변경">${dept}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--fg2);letter-spacing:.03em">
-        ${p.barcode
-          ? p.barcode
-          : `<input class="barcode-input${ch.barcode!==undefined?' changed':''}" type="text"
-              data-id="${p.id}" data-field="barcode"
-              value="${ch.barcode !== undefined ? ch.barcode : ''}"
-              placeholder="UPC 입력" maxlength="13"
-              style="width:100%;font-family:inherit;font-size:12px">
-            <div class="barcode-hint" id="barcode-hint-${p.id}"></div>`}
+        <input class="barcode-input${ch.barcode!==undefined?' changed':''}" type="text"
+          data-id="${p.id}" data-field="barcode"
+          value="${ch.barcode !== undefined ? ch.barcode : (p.barcode || '')}"
+          placeholder="UPC 입력" maxlength="13"
+          style="width:100%;font-family:inherit;font-size:12px">
+        <div class="barcode-hint" id="barcode-hint-${p.id}"></div>
       </td>
       <td style="max-width:240px">
         <input class="name-input${ch.name!==undefined?' changed':''}" type="text"

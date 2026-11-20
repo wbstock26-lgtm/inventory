@@ -122,6 +122,9 @@ def update_product(product_id: int, body: schemas.ProductUpdate, db: Session = D
         ).first()
         if conflict:
             conflict.barcode = None
+    # 바코드를 명시적으로 null로 보낸 경우 → 클리어 허용
+    elif 'barcode' in body.model_fields_set and body.barcode is None:
+        data['barcode'] = None
     for k, v in data.items():
         setattr(p, k, v)
     # delivery_price 또는 unit이 변경됐고 cost가 명시 안 됐으면 자동 계산
