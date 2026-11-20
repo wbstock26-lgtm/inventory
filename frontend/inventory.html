@@ -827,8 +827,8 @@ function renderProducts(products) {
     <tr data-id="${p.id}" data-stock="${p.stock}" data-vendor="${p.vendor||''}" data-cost="${p.cost||0}" data-min-stock="${p.min_stock||0}">
       <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})">${dept}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2)"
-          title="클릭: 바코드 편집 / 우클릭: 입고/판매 현황" oncontextmenu="showBarcodePopup(event,${p.id})">
-        <span class="editable-cell" onclick="startEdit(this,${p.id},'barcode')" style="font-family:inherit;font-size:inherit">${p.barcode || '—'}</span>
+          title="클릭: 바코드 복사 / 더블클릭: 편집 / 우클릭: 입고/판매 현황" oncontextmenu="showBarcodePopup(event,${p.id})">
+        <span class="editable-cell" onclick="copyBarcodeCell(this)" ondblclick="startEdit(this,${p.id},'barcode')" style="font-family:inherit;font-size:inherit">${p.barcode || '—'}</span>
       </td>
       <td style="max-width:200px;font-weight:500;font-family:'Inter',system-ui,sans-serif;cursor:text"
           onclick="if(event.target===this||event.target.classList.contains('sku-label')){const s=this.querySelector('.name-cell');if(s)startEdit(s,${p.id},'name');}">
@@ -1362,6 +1362,14 @@ function invShowToast(msg, isErr) {
   t.textContent = msg; t.className = 'show' + (isErr ? ' error' : '');
   clearTimeout(t._timer);
   t._timer = setTimeout(() => { t.className = ''; }, 2500);
+}
+
+function copyBarcodeCell(span) {
+  const barcode = span.textContent.trim();
+  if (!barcode || barcode === '—') return;
+  copyToClipboard(barcode)
+    .then(() => invShowToast('✅ 바코드 복사됨', false))
+    .catch(() => invShowToast('복사 실패', true));
 }
 
 function copyToClipboard(text) {
