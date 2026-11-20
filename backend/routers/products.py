@@ -114,6 +114,14 @@ def update_product(product_id: int, body: schemas.ProductUpdate, db: Session = D
     if not p:
         raise HTTPException(404, "제품을 찾을 수 없습니다")
     data = body.model_dump(exclude_none=True)
+    # 바코드 변경 시 다른 제품에 같은 바코드가 있으면 그 제품에서 제거 (이동 처리)
+    if 'barcode' in data and data['barcode']:
+        conflict = db.query(models.Product).filter(
+            models.Product.barcode == data['barcode'],
+            models.Product.id != product_id
+        ).first()
+        if conflict:
+            conflict.barcode = None
     for k, v in data.items():
         setattr(p, k, v)
     # delivery_price 또는 unit이 변경됐고 cost가 명시 안 됐으면 자동 계산

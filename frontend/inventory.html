@@ -832,7 +832,7 @@ function renderProducts(products) {
       <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2)"
           title="선택 후 Ctrl+C: 복사 / 더블클릭: 편집 / 우클릭: 팝업 메뉴" oncontextmenu="showBarcodePopup(event,${p.id})">
         <span class="editable-cell barcode-cell" draggable="true"
-          ondragstart="barcodeDragStart(event,'${p.barcode||''}')"
+          ondragstart="barcodeDragStart(event,'${p.barcode||''}',${p.id})"
           ondragover="barcodeDragOver(event)"
           ondragleave="barcodeDragLeave(event)"
           ondrop="barcodeDrop(event,${p.id},this)"
@@ -1374,9 +1374,13 @@ function invShowToast(msg, isErr) {
 }
 
 let _dragBarcode = '';
+let _dragBarcodeSourceId = null;
+let _dragBarcodeSourceSpan = null;
 
-function barcodeDragStart(e, barcode) {
+function barcodeDragStart(e, barcode, sourceProductId) {
   _dragBarcode = barcode;
+  _dragBarcodeSourceId = sourceProductId || null;
+  _dragBarcodeSourceSpan = e.currentTarget;
   e.dataTransfer.setData('text/plain', barcode);
   e.dataTransfer.effectAllowed = 'copy';
 }
@@ -1396,8 +1400,12 @@ async function barcodeDrop(e, productId, span) {
   e.preventDefault();
   span.classList.remove('drag-over');
   const barcode = _dragBarcode || e.dataTransfer.getData('text/plain');
+  const sourceId = _dragBarcodeSourceId;
+  const sourceSpan = _dragBarcodeSourceSpan;
   _dragBarcode = '';
-  if (!barcode) return;
+  _dragBarcodeSourceId = null;
+  _dragBarcodeSourceSpan = null;
+  if (!barcode || productId === sourceId) return;
   try {
     const r = await fetch(`${API_BASE}/api/products/${productId}`, {
       method: 'PUT',
@@ -1410,9 +1418,15 @@ async function barcodeDrop(e, productId, span) {
     span.textContent = updated.barcode || '—';
     const prod = (_lastProducts || []).find(p => p.id === productId);
     if (prod) prod.barcode = updated.barcode;
-    invShowToast('✅ 바코드 복사됨', false);
-  } catch {
-    invShowToast('❌ 저장 실패', true);
+    // 소스 제품에서 바코드 제거 (이동 처리 — 백엔드가 중복 제거)
+    if (sourceId && sourceSpan) {
+      sourceSpan.textContent = '—';
+      const srcProd = (_lastProducts || []).find(p => p.id === sourceId);
+      if (srcProd) srcProd.barcode = null;
+    }
+    invShowToast('✅ 바코드 이동됨', false);
+  } catch (err) {
+    invShowToast('❌ ' + (err.message || '저장 실패'), true);
   }
 }
 
