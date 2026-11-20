@@ -122,6 +122,7 @@ def update_product(product_id: int, body: schemas.ProductUpdate, db: Session = D
         ).first()
         if conflict:
             conflict.barcode = None
+            db.flush()  # UNIQUE 충돌 방지: conflict 먼저 클리어 후 p에 설정
     # 바코드를 명시적으로 null로 보낸 경우 → 클리어 허용
     elif 'barcode' in body.model_fields_set and body.barcode is None:
         data['barcode'] = None

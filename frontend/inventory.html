@@ -831,7 +831,7 @@ function renderProducts(products) {
       <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})">${dept}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2)"
           title="선택 후 Ctrl+C: 복사 / 더블클릭: 편집 / 우클릭: 팝업 메뉴" oncontextmenu="showBarcodePopup(event,${p.id})">
-        <span class="editable-cell barcode-cell" draggable="true"
+        <span class="editable-cell barcode-cell" draggable="${p.barcode ? 'true' : 'false'}"
           ondragstart="barcodeDragStart(event,'${p.barcode||''}',${p.id})"
           ondragover="barcodeDragOver(event)"
           ondragleave="barcodeDragLeave(event)"
