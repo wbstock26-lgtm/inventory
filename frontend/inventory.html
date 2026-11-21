@@ -1657,7 +1657,15 @@ async function _loadSplitData() {
     }
     empty.hidden = true;
 
-    const sorted = [...all].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // Split 엔드포인트가 생성한 항목만 — note에 "Split" 포함
+    const splits = all.filter(m => (m.note || '').toLowerCase().includes('split'));
+    const sorted = [...splits].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    if (!sorted.length) {
+      empty.hidden = false;
+      summary.innerHTML = '<span>Split 기록 <strong>없음</strong></span>';
+      return;
+    }
     let totalIn = 0, totalOut = 0;
     for (const m of sorted) {
       const d = new Date(m.created_at);
