@@ -628,8 +628,7 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
         <table class="sales-table">
           <thead>
             <tr>
-              <th>날짜</th>
-              <th>메모</th>
+              <th>판매 날짜</th>
               <th style="text-align:right">판매량</th>
             </tr>
           </thead>
@@ -1546,7 +1545,7 @@ async function _loadSalesData() {
   const tbody = document.getElementById('salesTbody');
   const empty = document.getElementById('salesEmpty');
   const summary = document.getElementById('salesSummaryBar');
-  tbody.innerHTML = '<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--fg3)">로딩 중…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="2" style="padding:20px;text-align:center;color:var(--fg3)">로딩 중…</td></tr>';
   empty.hidden = true;
   summary.innerHTML = '';
 
@@ -1571,15 +1570,13 @@ async function _loadSalesData() {
     rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     for (const m of rows) {
       const d = new Date(m.created_at);
-      const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+      const dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
       const amt = m.quantity * m.unit_cost;
       totalQty += m.quantity;
       totalAmt += amt;
-      const note = m.note || m.order_no || '—';
       tbody.insertAdjacentHTML('beforeend', `
         <tr>
           <td style="font-family:'IBM Plex Mono',monospace;font-size:12px;white-space:nowrap">${dateStr}</td>
-          <td style="color:var(--fg2);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${note}">${note}</td>
           <td style="text-align:right;font-weight:600;font-family:'IBM Plex Mono',monospace">${m.quantity}</td>
         </tr>
       `);
