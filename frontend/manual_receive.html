@@ -275,16 +275,12 @@ async function init() {
   document.getElementById('metaDate').value = new Date().toISOString().slice(0,10);
 
   try {
-    const [prods, stocks, skus] = await Promise.all([
+    const [prods, skus] = await Promise.all([
       fetch(`${API}/api/products`).then(r => r.json()),
-      fetch(`${API}/api/stock`).then(r => r.json()),
       fetch(`${API}/api/sku-map`).then(r => r.json()).catch(() => []),
     ]);
-    const stockMap = {};
-    stocks.forEach(s => { stockMap[s.product_id] = s.stock; });
-    allProducts = prods.filter(p => p.is_active).map(p => ({
-      ...p, stock: stockMap[p.id] ?? 0
-    }));
+    // /api/products 응답에 stock 필드가 이미 포함됨
+    allProducts = prods.filter(p => p.is_active);
     if (Array.isArray(skus)) {
       skus.forEach(s => { if (s.product_id) _skuMap[s.product_id] = s.item_no; });
     }
