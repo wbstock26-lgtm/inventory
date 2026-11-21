@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy import text
 from .database import engine
 from . import models
-from .routers import products, stock, orders, sku_map, ocr
+from .routers import products, stock, orders, sku_map, ocr, auth
 
 
 def _git_sync_db():
@@ -68,6 +68,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router,     prefix="/api/auth",      tags=["auth"])
 app.include_router(products.router, prefix="/api/products",  tags=["products"])
 app.include_router(stock.router,    prefix="/api/stock",     tags=["stock"])
 app.include_router(orders.router,   prefix="/api/orders",    tags=["orders"])
