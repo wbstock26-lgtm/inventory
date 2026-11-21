@@ -1554,8 +1554,8 @@ async function _loadSalesData() {
     const all = await api(url);
 
     const rows = all.filter(m => {
-      const d = new Date(m.created_at);
-      return d.getFullYear() === _salesYear && d.getMonth() + 1 === _salesMonth;
+      const saleDate = (m.order_no || m.created_at || '').slice(0, 7); // YYYY-MM
+      return saleDate === `${_salesYear}-${String(_salesMonth).padStart(2,'0')}`;
     });
 
     tbody.innerHTML = '';
@@ -1567,10 +1567,9 @@ async function _loadSalesData() {
     empty.hidden = true;
 
     let totalQty = 0, totalAmt = 0;
-    rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    rows.sort((a, b) => (a.order_no || a.created_at).localeCompare(b.order_no || b.created_at));
     for (const m of rows) {
-      const d = new Date(m.created_at);
-      const dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+      const dateStr = (m.order_no || m.created_at || '').slice(0, 10).replace(/-/g, '.');
       const amt = m.quantity * m.unit_cost;
       totalQty += m.quantity;
       totalAmt += amt;
