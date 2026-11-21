@@ -343,41 +343,6 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
 .flash-ok  { animation: flash-ok  .6s ease; }
 .flash-err { animation: flash-err .6s ease; }
 
-/* ── Barcode 우클릭 팝업 ── */
-#barcodePopup {
-  position: fixed; z-index: 200;
-  width: min(560px, calc(100vw - 20px));
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.10);
-  overflow: hidden; font-size: 13px;
-}
-.pp-head {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  padding: 12px 16px; gap: 12px;
-  background: var(--surface2); border-bottom: 1px solid var(--border);
-}
-.pp-title { font-size: 13px; font-weight: 700; line-height: 1.3; }
-.pp-sub   { font-size: 11px; color: var(--fg2); font-family: 'IBM Plex Mono', monospace; margin-top: 3px; letter-spacing: .03em; }
-.pp-close { background: none; border: none; cursor: pointer; color: var(--fg3); font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
-.pp-close:hover { background: var(--border); color: var(--fg); }
-.pp-body  { display: grid; grid-template-columns: 1fr 1fr; }
-@media (max-width: 430px) {
-  .pp-body { grid-template-columns: 1fr; }
-  .pp-col + .pp-col { border-left: none; border-top: 1px solid var(--border); }
-}
-.pp-col   { padding: 12px 14px; }
-.pp-col + .pp-col { border-left: 1px solid var(--border); }
-.pp-col-title { font-size: 11px; font-weight: 700; color: var(--fg2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
-.pp-tbl   { width: 100%; border-collapse: collapse; font-size: 12px; }
-.pp-tbl th { padding: 4px 6px; font-size: 10px; font-weight: 600; color: var(--fg3); letter-spacing: .04em; border-bottom: 1px solid var(--border); text-align: left; }
-.pp-tbl th:not(:first-child) { text-align: right; }
-.pp-tbl td { padding: 5px 6px; border-bottom: 1px solid var(--border); }
-.pp-tbl td:not(:first-child) { text-align: right; }
-.pp-tbl tbody tr:last-child td { border-bottom: none; }
-.pp-tbl tfoot tr td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; padding-top: 6px; }
-.pp-empty { padding: 20px 14px; text-align: center; color: var(--fg3); font-size: 12px; }
-#popupOverlay { position: fixed; inset: 0; z-index: 199; }
 
 /* Context menu */
 #inv-ctx-menu {
@@ -431,6 +396,16 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
 }
 .sales-month-nav button:hover { background: var(--surface2); color: var(--fg); }
 .sales-month-label { flex: 1; text-align: center; font-weight: 600; font-size: 14px; }
+.sales-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.sales-tab {
+  flex: 1; padding: 10px 0; border: none; background: none; cursor: pointer;
+  font-size: 13px; font-weight: 500; color: var(--fg2); border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.sales-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.sales-tab:hover:not(.active) { color: var(--fg); background: var(--surface2); }
+#salesTabContent, #receiveTabContent { display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
+#receiveTabContent:not([hidden]) { display: flex; }
 .sales-body { flex: 1; overflow-y: auto; padding: 0; }
 .sales-summary-bar {
   padding: 10px 20px; background: var(--surface2); border-bottom: 1px solid var(--border);
@@ -620,27 +595,6 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
 
 </div>
 
-<!-- Barcode 우클릭 팝업 -->
-<div id="barcodePopup" style="display:none">
-  <div class="pp-head">
-    <div>
-      <div class="pp-title" id="ppTitle">—</div>
-      <div class="pp-sub"   id="ppBarcode">—</div>
-    </div>
-    <button class="pp-close" onclick="closeBarcodePopup()">✕</button>
-  </div>
-  <div class="pp-body">
-    <div class="pp-col">
-      <div class="pp-col-title">📥 입고 내역</div>
-      <div id="ppIn"><div class="pp-empty">로딩 중…</div></div>
-    </div>
-    <div class="pp-col">
-      <div class="pp-col-title">🛒 월별 판매</div>
-      <div id="ppOut"><div class="pp-empty">로딩 중…</div></div>
-    </div>
-  </div>
-</div>
-<div id="popupOverlay" style="display:none" onclick="closeBarcodePopup()"></div>
 <div id="inv-ctx-menu">
   <button onclick="invCtxCopyRow()">📋 제품 전체 복사</button>
   <button onclick="invCtxCopyBarcode()">🔢 바코드 복사</button>
@@ -648,31 +602,57 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
 </div>
 <div id="inv-toast"></div>
 
-<!-- 판매 현황 드로어 -->
+<!-- 판매/매입 현황 드로어 -->
 <div id="salesOverlay" onclick="if(event.target===this)closeSalesPanel()">
   <div id="salesDrawer">
     <div class="sales-head">
       <div class="sales-head-title" id="salesProductName">—</div>
       <div class="sales-head-sub" id="salesProductBarcode"></div>
     </div>
-    <div class="sales-month-nav">
-      <button onclick="salesNavMonth(-1)">‹</button>
-      <div class="sales-month-label" id="salesMonthLabel"></div>
-      <button onclick="salesNavMonth(1)">›</button>
+    <!-- 탭 -->
+    <div class="sales-tabs">
+      <button class="sales-tab active" id="tabSales" onclick="switchDrawerTab('sales')">📈 판매 내역</button>
+      <button class="sales-tab" id="tabReceive" onclick="switchDrawerTab('receive')">📥 매입 내역</button>
     </div>
-    <div class="sales-summary-bar" id="salesSummaryBar"></div>
-    <div class="sales-body">
-      <table class="sales-table">
-        <thead>
-          <tr>
-            <th>날짜</th>
-            <th>메모</th>
-            <th style="text-align:right">판매량</th>
-          </tr>
-        </thead>
-        <tbody id="salesTbody"></tbody>
-      </table>
-      <div class="sales-empty" id="salesEmpty" hidden>이 달 판매 기록이 없습니다</div>
+    <!-- 판매 탭 -->
+    <div id="salesTabContent">
+      <div class="sales-month-nav">
+        <button onclick="salesNavMonth(-1)">‹</button>
+        <div class="sales-month-label" id="salesMonthLabel"></div>
+        <button onclick="salesNavMonth(1)">›</button>
+      </div>
+      <div class="sales-summary-bar" id="salesSummaryBar"></div>
+      <div class="sales-body">
+        <table class="sales-table">
+          <thead>
+            <tr>
+              <th>날짜</th>
+              <th>메모</th>
+              <th style="text-align:right">판매량</th>
+            </tr>
+          </thead>
+          <tbody id="salesTbody"></tbody>
+        </table>
+        <div class="sales-empty" id="salesEmpty" hidden>이 달 판매 기록이 없습니다</div>
+      </div>
+    </div>
+    <!-- 매입 탭 -->
+    <div id="receiveTabContent" hidden>
+      <div class="sales-summary-bar" id="receiveSummaryBar"></div>
+      <div class="sales-body">
+        <table class="sales-table">
+          <thead>
+            <tr>
+              <th>날짜</th>
+              <th>발주번호</th>
+              <th style="text-align:right">입고량</th>
+              <th style="text-align:right">금액</th>
+            </tr>
+          </thead>
+          <tbody id="receiveTbody"></tbody>
+        </table>
+        <div class="sales-empty" id="receiveEmpty" hidden>입고 기록이 없습니다</div>
+      </div>
     </div>
     <div class="sales-foot">
       <button onclick="closeSalesPanel()" style="padding:8px 18px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--fg);font-size:13px;cursor:pointer">닫기</button>
@@ -922,7 +902,7 @@ function renderProducts(products) {
     <tr data-id="${p.id}" data-stock="${p.stock}" data-vendor="${p.vendor||''}" data-cost="${p.cost||0}" data-min-stock="${p.min_stock||0}">
       <td><span class="dept-badge ${deptClass}" onclick="startDeptEdit(this,${p.id})">${dept}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.03em;color:var(--fg2)"
-          title="선택 후 Ctrl+C: 복사 / 더블클릭: 편집 / 우클릭: 팝업 메뉴" oncontextmenu="showBarcodePopup(event,${p.id})">
+          title="선택 후 Ctrl+C: 복사 / 더블클릭: 편집 / 우클릭: 이력 패널" oncontextmenu="event.preventDefault();showSalesPanel(${p.id},${JSON.stringify(p.name)},${JSON.stringify(p.barcode||'')})">
         <span class="editable-cell barcode-cell" draggable="${p.barcode ? 'true' : 'false'}"
           ondragstart="barcodeDragStart(event,'${p.barcode||''}',${p.id})"
           ondragover="barcodeDragOver(event)"
@@ -995,122 +975,6 @@ loadAll().then(() => {
   });
 });
 
-// ── Barcode 우클릭 팝업 ────────────────────────
-async function showBarcodePopup(e, productId) {
-  e.preventDefault();
-  const p = _lastProducts.find(x => x.id === productId);
-  if (!p) return;
-
-  const popup   = document.getElementById('barcodePopup');
-  const overlay = document.getElementById('popupOverlay');
-  document.getElementById('ppTitle').textContent   = p.name;
-  document.getElementById('ppBarcode').textContent = p.barcode || '—';
-  document.getElementById('ppIn').innerHTML  = '<div class="pp-empty">로딩 중…</div>';
-  document.getElementById('ppOut').innerHTML = '<div class="pp-empty">로딩 중…</div>';
-
-  popup.style.display   = '';
-  overlay.style.display = '';
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const pw = popup.offsetWidth  || Math.min(560, vw - 20);
-  const ph = popup.offsetHeight || 320;
-  let x = e.clientX + 10, y = e.clientY + 10;
-  if (x + pw > vw - 10) x = Math.max(10, vw - pw - 10);
-  if (y + ph > vh - 10) y = Math.max(10, vh - ph - 10);
-  popup.style.left = x + 'px';
-  popup.style.top  = y + 'px';
-
-  try {
-    const [inData, outData] = await Promise.all([
-      fetch(`${API_BASE}/api/stock/movements?product_id=${productId}&type=in&limit=500`).then(r => r.json()),
-      fetch(`${API_BASE}/api/stock/movements?product_id=${productId}&type=out&limit=500`).then(r => r.json()),
-    ]);
-    renderInbound('ppIn',  inData,  p.cost || 0);
-    renderSales('ppOut', outData);
-  } catch {
-    const err = '<div class="pp-empty" style="color:var(--red)">로드 실패</div>';
-    document.getElementById('ppIn').innerHTML  = err;
-    document.getElementById('ppOut').innerHTML = err;
-  }
-}
-
-function renderInbound(elId, data, productCost) {
-  const el = document.getElementById(elId);
-  if (!data.length) { el.innerHTML = '<div class="pp-empty">이력 없음</div>'; return; }
-
-  const sorted = [...data].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  let totQty = 0, totAmt = 0;
-
-  el.innerHTML = `
-    <table class="pp-tbl">
-      <thead><tr><th>날짜</th><th>수량</th><th>금액</th></tr></thead>
-      <tbody>${sorted.map(m => {
-        const cost = m.unit_cost || productCost;
-        const amt  = m.quantity * cost;
-        totQty += m.quantity;
-        totAmt += amt;
-        const date = (m.created_at || '').slice(0, 10);
-        const costNote = (!m.unit_cost && productCost)
-          ? `<span style="font-size:9px;color:var(--fg3);margin-left:2px">원가</span>` : '';
-        return `<tr>
-          <td style="font-family:'IBM Plex Mono',monospace;font-size:11px">${date}</td>
-          <td>${m.quantity}</td>
-          <td style="font-family:'IBM Plex Mono',monospace">$${amt.toFixed(2)}${costNote}</td>
-        </tr>`;
-      }).join('')}</tbody>
-      <tfoot><tr>
-        <td>합계</td>
-        <td>${totQty}</td>
-        <td style="font-family:'IBM Plex Mono',monospace">$${totAmt.toFixed(2)}</td>
-      </tr></tfoot>
-    </table>`;
-}
-
-function renderSales(elId, data) {
-  const el = document.getElementById(elId);
-  if (!data.length) { el.innerHTML = '<div class="pp-empty">이력 없음</div>'; return; }
-
-  const byMonth = {};
-  for (const m of data) {
-    const ym = (m.order_no && /^\d{4}-\d{2}/.test(m.order_no))
-      ? m.order_no.slice(0, 7)
-      : (m.created_at || '').slice(0, 7);
-    if (!ym) continue;
-    if (!byMonth[ym]) byMonth[ym] = { qty: 0, amt: 0 };
-    byMonth[ym].qty += m.quantity;
-    byMonth[ym].amt += m.quantity * (m.unit_cost || 0);
-  }
-
-  const months = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
-  if (!months.length) { el.innerHTML = '<div class="pp-empty">이력 없음</div>'; return; }
-
-  const totQty = months.reduce((s, m) => s + byMonth[m].qty, 0);
-  const totAmt = months.reduce((s, m) => s + byMonth[m].amt, 0);
-
-  el.innerHTML = `
-    <table class="pp-tbl">
-      <thead><tr><th>월</th><th>수량</th><th>금액</th></tr></thead>
-      <tbody>${months.map(ym => {
-        const [y, mo] = ym.split('-');
-        return `<tr>
-          <td style="font-family:'IBM Plex Mono',monospace">${y}.${mo}</td>
-          <td>${byMonth[ym].qty}</td>
-          <td style="font-family:'IBM Plex Mono',monospace">$${byMonth[ym].amt.toFixed(2)}</td>
-        </tr>`;
-      }).join('')}</tbody>
-      <tfoot><tr>
-        <td>합계</td>
-        <td>${totQty}</td>
-        <td style="font-family:'IBM Plex Mono',monospace">$${totAmt.toFixed(2)}</td>
-      </tr></tfoot>
-    </table>`;
-}
-
-function closeBarcodePopup() {
-  document.getElementById('barcodePopup').style.display   = 'none';
-  document.getElementById('popupOverlay').style.display   = 'none';
-}
-
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBarcodePopup(); });
 
 // ── 인라인 편집 ───────────────────────────────
 let _editActive = null;
@@ -1611,6 +1475,17 @@ let _salesProductName = '';
 let _salesYear  = new Date().getFullYear();
 let _salesMonth = new Date().getMonth() + 1; // 1-based
 
+let _drawerTab = 'sales';
+
+function switchDrawerTab(tab) {
+  _drawerTab = tab;
+  document.getElementById('tabSales').classList.toggle('active', tab === 'sales');
+  document.getElementById('tabReceive').classList.toggle('active', tab === 'receive');
+  document.getElementById('salesTabContent').hidden = tab !== 'sales';
+  document.getElementById('receiveTabContent').hidden = tab !== 'receive';
+  if (tab === 'receive') _loadReceiveData();
+}
+
 async function showSalesPanel(productId, productName, barcode) {
   _salesProductId   = productId;
   _salesProductName = productName;
@@ -1618,6 +1493,12 @@ async function showSalesPanel(productId, productName, barcode) {
   _salesMonth = new Date().getMonth() + 1;
   document.getElementById('salesProductName').textContent = productName;
   document.getElementById('salesProductBarcode').textContent = barcode || '';
+  // 판매 탭으로 초기화
+  _drawerTab = 'sales';
+  document.getElementById('tabSales').classList.add('active');
+  document.getElementById('tabReceive').classList.remove('active');
+  document.getElementById('salesTabContent').hidden = false;
+  document.getElementById('receiveTabContent').hidden = true;
   document.getElementById('salesOverlay').classList.add('show');
   await _loadSalesData();
 }
@@ -1646,15 +1527,9 @@ async function _loadSalesData() {
   summary.innerHTML = '';
 
   try {
-    // 이달 1일 ~ 말일 범위
-    const from = `${_salesYear}-${String(_salesMonth).padStart(2,'0')}-01`;
-    const toDate = new Date(_salesYear, _salesMonth, 0); // last day
-    const to = `${_salesYear}-${String(_salesMonth).padStart(2,'0')}-${String(toDate.getDate()).padStart(2,'0')}`;
-
     const url = `${API_BASE}/api/stock/movements?product_id=${_salesProductId}&type=out&limit=500`;
     const all = await api(url);
 
-    // 해당 월 필터
     const rows = all.filter(m => {
       const d = new Date(m.created_at);
       return d.getFullYear() === _salesYear && d.getMonth() + 1 === _salesMonth;
@@ -1669,7 +1544,6 @@ async function _loadSalesData() {
     empty.hidden = true;
 
     let totalQty = 0, totalAmt = 0;
-    // 날짜 오름차순
     rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     for (const m of rows) {
       const d = new Date(m.created_at);
@@ -1689,6 +1563,52 @@ async function _loadSalesData() {
     summary.innerHTML = `<span>총 판매량 <strong>${totalQty}</strong></span><span>매출 <strong>$${totalAmt.toFixed(2)}</strong></span>`;
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--red)">오류: ${e.message}</td></tr>`;
+  }
+}
+
+async function _loadReceiveData() {
+  if (!_salesProductId) return;
+  const tbody = document.getElementById('receiveTbody');
+  const empty = document.getElementById('receiveEmpty');
+  const summary = document.getElementById('receiveSummaryBar');
+  tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--fg3)">로딩 중…</td></tr>';
+  empty.hidden = true;
+  summary.innerHTML = '';
+
+  try {
+    const url = `${API_BASE}/api/stock/movements?product_id=${_salesProductId}&type=in&limit=500`;
+    const all = await api(url);
+
+    tbody.innerHTML = '';
+    if (!all.length) {
+      empty.hidden = false;
+      summary.innerHTML = '<span>입고량 <strong>0</strong></span><span>매입 <strong>$0.00</strong></span>';
+      return;
+    }
+    empty.hidden = true;
+
+    const sorted = [...all].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    let totalQty = 0, totalAmt = 0;
+    for (const m of sorted) {
+      const d = new Date(m.created_at);
+      const dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+      const cost = m.unit_cost || 0;
+      const amt = m.quantity * cost;
+      totalQty += m.quantity;
+      totalAmt += amt;
+      const orderNo = m.order_no || m.note || '—';
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap">${dateStr}</td>
+          <td style="color:var(--fg2);font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${orderNo}">${orderNo}</td>
+          <td style="text-align:right;font-weight:600;font-family:'IBM Plex Mono',monospace">${m.quantity}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">$${amt.toFixed(2)}</td>
+        </tr>
+      `);
+    }
+    summary.innerHTML = `<span>총 입고량 <strong>${totalQty}</strong></span><span>매입 <strong>$${totalAmt.toFixed(2)}</strong></span>`;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--red)">오류: ${e.message}</td></tr>`;
   }
 }
 
