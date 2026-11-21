@@ -553,6 +553,7 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
           <th>제품명</th>
           <th>재고 매칭</th>
           <th>공급사</th>
+          <th style="text-align:center">단위 ✏️</th>
           <th style="text-align:right">단가</th>
           <th style="text-align:center">확인 수량</th>
           <th style="text-align:right">합계</th>
@@ -999,11 +1000,17 @@ function renderResult(result) {
       </td>
       <td id="badge-${i}">${matchBadgeHTML(item, i)}</td>
       <td><span class="sup-tag ${supClass[meta.supplier]}">${meta.supplier}</span></td>
+      <td style="text-align:center">
+        <input type="number" class="edit-inp detail-qty-inp" id="upc-${i}" value="${item.unit_per_case || ''}"
+          min="1" placeholder="1" title="케이스당 단위 수" oninput="updateUnitPerCase(${i})" style="width:50px">
+      </td>
       <td style="text-align:right">
         <input class="price-edit-input" id="price-${i}" value="${item.unitPrice.toFixed(2)}"
           placeholder="0.00" onchange="updateUnitPrice(${i})">
       </td>
-      <td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">${item.qty}</td>
+      <td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600" id="qty-cell-${i}">
+        ${item.qty}${item.unit_per_case > 1 ? `<span style="font-size:10px;color:var(--fg2);display:block">×${item.unit_per_case}=${item.qty*item.unit_per_case}</span>` : ''}
+      </td>
       <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600" id="total-${i}">
         $${item.total.toFixed(2)}
       </td>
@@ -1069,6 +1076,19 @@ function updateUnitPrice(i) {
   parsedItems[i].total = parsedItems[i].qty * val;
   document.getElementById('total-' + i).textContent = '$' + parsedItems[i].total.toFixed(2);
   updateSummary();
+  saveDraft();
+}
+
+function updateUnitPerCase(i) {
+  const inp = document.getElementById('upc-' + i);
+  let val = parseInt(inp.value) || 1;
+  if (val < 1) val = 1;
+  parsedItems[i].unit_per_case = val;
+  const qty = parsedItems[i].qty;
+  const cell = document.getElementById('qty-cell-' + i);
+  if (cell) {
+    cell.innerHTML = `${qty}${val > 1 ? `<span style="font-size:10px;color:var(--fg2);display:block">×${val}=${qty*val}</span>` : ''}`;
+  }
   saveDraft();
 }
 
@@ -1248,8 +1268,8 @@ async function doImport(active) {
           supplier_sku: item.sku,
           barcode:      item.upc || (match.product?.barcode) || '',
           name:         item.desc,
-          qty_ordered:  item.qty,
-          qty_received: item.qty,
+          qty_ordered:  item.qty * (item.unit_per_case || 1),
+          qty_received: item.qty * (item.unit_per_case || 1),
           unit_price:   item.unitPrice
         };
       })
