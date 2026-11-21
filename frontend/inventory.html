@@ -614,6 +614,7 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
     <div class="sales-tabs">
       <button class="sales-tab active" id="tabSales" onclick="switchDrawerTab('sales')">📈 판매 내역</button>
       <button class="sales-tab" id="tabReceive" onclick="switchDrawerTab('receive')">📥 매입 내역</button>
+      <button class="sales-tab" id="tabSplit" onclick="switchDrawerTab('split')">✂️ Split</button>
     </div>
     <!-- 판매 탭 -->
     <div id="salesTabContent" class="tab-visible">
@@ -653,6 +654,23 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
           <tbody id="receiveTbody"></tbody>
         </table>
         <div class="sales-empty" id="receiveEmpty" hidden>입고 기록이 없습니다</div>
+      </div>
+    </div>
+    <!-- Split 탭 -->
+    <div id="splitTabContent">
+      <div class="sales-summary-bar" id="splitSummaryBar"></div>
+      <div class="sales-body">
+        <table class="sales-table">
+          <thead>
+            <tr>
+              <th>날짜</th>
+              <th>메모</th>
+              <th style="text-align:right">수량</th>
+            </tr>
+          </thead>
+          <tbody id="splitTbody"></tbody>
+        </table>
+        <div class="sales-empty" id="splitEmpty" hidden>Split 기록이 없습니다</div>
       </div>
     </div>
     <div class="sales-foot">
@@ -1482,9 +1500,12 @@ function switchDrawerTab(tab) {
   _drawerTab = tab;
   document.getElementById('tabSales').classList.toggle('active', tab === 'sales');
   document.getElementById('tabReceive').classList.toggle('active', tab === 'receive');
+  document.getElementById('tabSplit').classList.toggle('active', tab === 'split');
   document.getElementById('salesTabContent').classList.toggle('tab-visible', tab === 'sales');
   document.getElementById('receiveTabContent').classList.toggle('tab-visible', tab === 'receive');
+  document.getElementById('splitTabContent').classList.toggle('tab-visible', tab === 'split');
   if (tab === 'receive') _loadReceiveData();
+  if (tab === 'split') _loadSplitData();
 }
 
 async function showSalesPanel(productId, productName, barcode) {
@@ -1498,8 +1519,10 @@ async function showSalesPanel(productId, productName, barcode) {
   _drawerTab = 'sales';
   document.getElementById('tabSales').classList.add('active');
   document.getElementById('tabReceive').classList.remove('active');
+  document.getElementById('tabSplit').classList.remove('active');
   document.getElementById('salesTabContent').classList.add('tab-visible');
   document.getElementById('receiveTabContent').classList.remove('tab-visible');
+  document.getElementById('splitTabContent').classList.remove('tab-visible');
   document.getElementById('salesOverlay').classList.add('show');
   await _loadSalesData();
 }
@@ -1610,6 +1633,51 @@ async function _loadReceiveData() {
     summary.innerHTML = `<span>총 입고량 <strong>${totalQty}</strong></span><span>매입 <strong>$${totalAmt.toFixed(2)}</strong></span>`;
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--red)">오류: ${e.message}</td></tr>`;
+  }
+}
+
+async function _loadSplitData() {
+  if (!_salesProductId) return;
+  const tbody = document.getElementById('splitTbody');
+  const empty = document.getElementById('splitEmpty');
+  const summary = document.getElementById('splitSummaryBar');
+  tbody.innerHTML = '<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--fg3)">로딩 중…</td></tr>';
+  empty.hidden = true;
+  summary.innerHTML = '';
+
+  try {
+    const url = `${API_BASE}/api/stock/movements?product_id=${_salesProductId}&type=adj&limit=500`;
+    const all = await api(url);
+
+    tbody.innerHTML = '';
+    if (!all.length) {
+      empty.hidden = false;
+      summary.innerHTML = '<span>Split 기록 <strong>없음</strong></span>';
+      return;
+    }
+    empty.hidden = true;
+
+    const sorted = [...all].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    let totalIn = 0, totalOut = 0;
+    for (const m of sorted) {
+      const d = new Date(m.created_at);
+      const dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+      const note = m.note || '—';
+      const qty = m.quantity;
+      if (qty > 0) totalIn += qty; else totalOut += Math.abs(qty);
+      const qtyStr = qty > 0 ? `+${qty}` : `${qty}`;
+      const qtyColor = qty > 0 ? 'var(--green)' : 'var(--red)';
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap">${dateStr}</td>
+          <td style="color:var(--fg2);font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${note}">${note}</td>
+          <td style="text-align:right;font-weight:600;font-family:'IBM Plex Mono',monospace;color:${qtyColor}">${qtyStr}</td>
+        </tr>
+      `);
+    }
+    summary.innerHTML = `<span>분할 차감 <strong style="color:var(--red)">-${totalOut}</strong></span><span>분할 입고 <strong style="color:var(--green)">+${totalIn}</strong></span>`;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--red)">오류: ${e.message}</td></tr>`;
   }
 }
 
