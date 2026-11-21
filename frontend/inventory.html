@@ -404,8 +404,9 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
 }
 .sales-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .sales-tab:hover:not(.active) { color: var(--fg); background: var(--surface2); }
-#salesTabContent, #receiveTabContent { display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
-#receiveTabContent:not([hidden]) { display: flex; }
+#salesTabContent, #receiveTabContent { flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
+#salesTabContent.tab-visible, #receiveTabContent.tab-visible { display: flex; }
+#salesTabContent:not(.tab-visible), #receiveTabContent:not(.tab-visible) { display: none; }
 .sales-body { flex: 1; overflow-y: auto; padding: 0; }
 .sales-summary-bar {
   padding: 10px 20px; background: var(--surface2); border-bottom: 1px solid var(--border);
@@ -615,7 +616,7 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
       <button class="sales-tab" id="tabReceive" onclick="switchDrawerTab('receive')">📥 매입 내역</button>
     </div>
     <!-- 판매 탭 -->
-    <div id="salesTabContent">
+    <div id="salesTabContent" class="tab-visible">
       <div class="sales-month-nav">
         <button onclick="salesNavMonth(-1)">‹</button>
         <div class="sales-month-label" id="salesMonthLabel"></div>
@@ -637,7 +638,7 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
       </div>
     </div>
     <!-- 매입 탭 -->
-    <div id="receiveTabContent" hidden>
+    <div id="receiveTabContent">
       <div class="sales-summary-bar" id="receiveSummaryBar"></div>
       <div class="sales-body">
         <table class="sales-table">
@@ -1481,8 +1482,8 @@ function switchDrawerTab(tab) {
   _drawerTab = tab;
   document.getElementById('tabSales').classList.toggle('active', tab === 'sales');
   document.getElementById('tabReceive').classList.toggle('active', tab === 'receive');
-  document.getElementById('salesTabContent').hidden = tab !== 'sales';
-  document.getElementById('receiveTabContent').hidden = tab !== 'receive';
+  document.getElementById('salesTabContent').classList.toggle('tab-visible', tab === 'sales');
+  document.getElementById('receiveTabContent').classList.toggle('tab-visible', tab === 'receive');
   if (tab === 'receive') _loadReceiveData();
 }
 
@@ -1497,8 +1498,8 @@ async function showSalesPanel(productId, productName, barcode) {
   _drawerTab = 'sales';
   document.getElementById('tabSales').classList.add('active');
   document.getElementById('tabReceive').classList.remove('active');
-  document.getElementById('salesTabContent').hidden = false;
-  document.getElementById('receiveTabContent').hidden = true;
+  document.getElementById('salesTabContent').classList.add('tab-visible');
+  document.getElementById('receiveTabContent').classList.remove('tab-visible');
   document.getElementById('salesOverlay').classList.add('show');
   await _loadSalesData();
 }
