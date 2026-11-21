@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<title>수동 입고 처리</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg:#f0f2f5; --surface:#fff; --surface2:#f7f8fa; --border:#e4e7ec;
+  --fg:#111827; --fg2:#6b7280; --fg3:#9ca3af;
+  --accent:#2563eb; --accent-h:#1d4ed8; --accent-bg:#eff6ff;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --red:#dc2626; --red-bg:#fef2f2;
+  --yellow:#d97706; --yellow-bg:#fffbeb;
+  --shadow:0 1px 3px rgba(0,0,0,.08); --radius:8px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+    --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+    --accent:#3b82f6; --accent-bg:#1e2a4a;
+    --green:#4ade80; --green-bg:#0a2010;
+    --red:#f87171; --red-bg:#2a0808;
+    --yellow:#fbbf24; --yellow-bg:#1f1600;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+  --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+  --accent:#3b82f6; --accent-bg:#1e2a4a;
+  --green:#4ade80; --green-bg:#0a2010;
+  --red:#f87171; --red-bg:#2a0808;
+  --yellow:#fbbf24; --yellow-bg:#1f1600;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg); color: var(--fg); min-height: 100vh;
+  padding: 0 max(16px, env(safe-area-inset-left,0px));
+  padding-right: max(16px, env(safe-area-inset-right,0px));
+}
+.top-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 0; border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.top-bar h1 { font-size: 18px; font-weight: 700; }
+.top-bar .sub { font-size: 13px; color: var(--fg2); margin-left: auto; }
+.nav-link {
+  font-size: 13px; color: var(--accent); text-decoration: none;
+  padding: 4px 10px; border: 1px solid var(--accent); border-radius: 6px;
+}
+.nav-link:hover { background: var(--accent-bg); }
+
+/* Search */
+.search-wrap {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px;
+}
+.search-row { display: flex; gap: 10px; align-items: center; }
+.search-box {
+  flex: 1; position: relative;
+}
+.search-inp {
+  width: 100%; padding: 9px 12px 9px 36px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface2); color: var(--fg); font-size: 14px;
+  outline: none;
+}
+.search-inp:focus { border-color: var(--accent); background: var(--surface); }
+.search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--fg3); font-size: 15px; pointer-events: none;
+}
+.search-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  max-height: 260px; overflow-y: auto; z-index: 100; display: none;
+}
+.search-item {
+  padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.search-item:last-child { border-bottom: none; }
+.search-item:hover { background: var(--accent-bg); }
+.search-item .s-name { font-weight: 500; font-size: 13px; }
+.search-item .s-meta { font-size: 11px; color: var(--fg2); }
+.search-item .s-stock { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--fg2); }
+
+/* Supplier + date */
+.meta-row {
+  display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;
+}
+.meta-field { display: flex; flex-direction: column; gap: 4px; }
+.meta-field label { font-size: 11px; color: var(--fg2); font-weight: 500; }
+.meta-inp {
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface2); color: var(--fg); font-size: 13px;
+  outline: none; min-width: 140px;
+}
+.meta-inp:focus { border-color: var(--accent); background: var(--surface); }
+
+/* Table */
+.table-wrap {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow-x: auto; margin-bottom: 16px;
+}
+table { width: 100%; border-collapse: collapse; min-width: 700px; }
+th {
+  padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600;
+  color: var(--fg2); text-transform: uppercase; letter-spacing: .04em;
+  border-bottom: 1px solid var(--border); background: var(--surface2);
+  white-space: nowrap;
+}
+td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr.empty-row td { text-align: center; color: var(--fg3); padding: 32px; }
+tr.skip-row td { opacity: .4; }
+
+.cell-inp {
+  width: 100%; padding: 5px 8px; border: 1px solid transparent;
+  border-bottom: 1px dashed var(--border); border-radius: 0;
+  background: transparent; color: var(--fg); font-size: 13px;
+  font-family: inherit; outline: none;
+}
+.cell-inp:hover { border-bottom-color: var(--fg2); }
+.cell-inp:focus {
+  border: 1px solid var(--accent) !important; border-radius: 4px;
+  background: var(--surface2); outline: 2px solid var(--accent); outline-offset: -1px;
+}
+.cell-num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.computed { color: var(--accent); font-weight: 700; font-size: 13px; }
+.stock-badge {
+  font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 600;
+  background: var(--accent-bg); color: var(--accent); white-space: nowrap;
+}
+.del-btn {
+  background: none; border: none; cursor: pointer; color: var(--fg3);
+  font-size: 16px; padding: 2px 6px; border-radius: 4px;
+}
+.del-btn:hover { color: var(--red); background: var(--red-bg); }
+
+/* Footer */
+.footer-bar {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 14px 20px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.summary-info { font-size: 13px; color: var(--fg2); }
+.summary-info strong { color: var(--fg); }
+.btn {
+  padding: 9px 20px; border-radius: 6px; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: none; transition: background .15s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-secondary {
+  background: var(--surface2); color: var(--fg2); border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--border); }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--fg); color: var(--bg); padding: 10px 20px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; transition: transform .2s; z-index: 999;
+  white-space: nowrap;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+#toast.error { background: var(--red); color: #fff; }
+#toast.success { background: var(--green); color: #fff; }
+
+/* Result panel */
+.result-panel {
+  background: var(--green-bg); border: 1px solid var(--green);
+  border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px;
+  display: none;
+}
+.result-panel h3 { color: var(--green); margin-bottom: 8px; }
+.result-item { font-size: 13px; padding: 2px 0; color: var(--fg2); }
+.result-item strong { color: var(--fg); }
+</style>
+
+<div class="top-bar">
+  <h1>📦 수동 입고 처리</h1>
+  <span class="sub" id="todayDate"></span>
+  <a class="nav-link" href="inventory.html">← 재고 현황</a>
+</div>
+
+<div id="resultPanel" class="result-panel">
+  <h3>✅ 입고 처리 완료!</h3>
+  <div id="resultItems"></div>
+</div>
+
+<!-- Search & Meta -->
+<div class="search-wrap">
+  <div class="search-row">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-inp" id="searchInp"
+        placeholder="제품명, 바코드, SKU로 검색 후 클릭하여 추가…"
+        autocomplete="off" oninput="onSearch()" onfocus="onSearch()">
+      <div class="search-dropdown" id="searchDrop"></div>
+    </div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-field">
+      <label>공급사</label>
+      <select class="meta-inp" id="metaSupplier">
+        <option value="">-- 선택 --</option>
+        <option>Connect</option>
+        <option>BDL</option>
+        <option>Sleeman</option>
+        <option value="기타">기타</option>
+      </select>
+    </div>
+    <div class="meta-field">
+      <label>발주번호 (선택)</label>
+      <input type="text" class="meta-inp" id="metaOrderNo" placeholder="예: 4169144">
+    </div>
+    <div class="meta-field">
+      <label>입고일</label>
+      <input type="date" class="meta-inp" id="metaDate">
+    </div>
+  </div>
+</div>
+
+<!-- Items table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>제품명</th>
+        <th>바코드</th>
+        <th>현재 재고</th>
+        <th style="text-align:center">CS 수량</th>
+        <th style="text-align:center">단위</th>
+        <th style="text-align:center">입고량</th>
+        <th style="text-align:right">입고가</th>
+        <th>메모</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="itemsTbody">
+      <tr class="empty-row" id="emptyRow">
+        <td colspan="9">위 검색창에서 제품을 추가하세요</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Footer -->
+<div class="footer-bar">
+  <div class="summary-info" id="summaryInfo">항목 없음</div>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button class="btn btn-secondary" onclick="clearAll()">초기화</button>
+    <button class="btn btn-primary" id="submitBtn" onclick="submitAll()" disabled>입고 처리</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'http://127.0.0.1:8000';
+let allProducts = [];
+let items = [];      // { product, cs, unit_per_case, unit_cost, note }
+let _skuMap = {};
+
+async function init() {
+  document.getElementById('todayDate').textContent =
+    new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' });
+  document.getElementById('metaDate').value = new Date().toISOString().slice(0,10);
+
+  try {
+    const [prods, stocks, skus] = await Promise.all([
+      fetch(`${API}/api/products`).then(r => r.json()),
+      fetch(`${API}/api/stock`).then(r => r.json()),
+      fetch(`${API}/api/sku-map`).then(r => r.json()).catch(() => []),
+    ]);
+    const stockMap = {};
+    stocks.forEach(s => { stockMap[s.product_id] = s.stock; });
+    allProducts = prods.filter(p => p.is_active).map(p => ({
+      ...p, stock: stockMap[p.id] ?? 0
+    }));
+    if (Array.isArray(skus)) {
+      skus.forEach(s => { if (s.product_id) _skuMap[s.product_id] = s.item_no; });
+    }
+  } catch(e) {
+    showToast('서버 연결 실패: ' + e.message, 'error');
+  }
+}
+
+function onSearch() {
+  const q = document.getElementById('searchInp').value.trim().toLowerCase();
+  const drop = document.getElementById('searchDrop');
+  if (!q) { drop.style.display = 'none'; return; }
+
+  const matched = allProducts.filter(p => {
+    const sku = (_skuMap[p.id] || '').toLowerCase();
+    return p.name.toLowerCase().includes(q) ||
+           (p.barcode || '').includes(q) ||
+           sku.includes(q);
+  }).slice(0, 12);
+
+  if (!matched.length) { drop.style.display = 'none'; return; }
+
+  drop.innerHTML = matched.map(p => `
+    <div class="search-item" onclick="addProduct(${p.id})">
+      <div>
+        <div class="s-name">${p.name}</div>
+        <div class="s-meta">${p.barcode || ''} ${_skuMap[p.id] ? '· SKU:' + _skuMap[p.id] : ''} ${p.vendor ? '· ' + p.vendor : ''}</div>
+      </div>
+      <div class="s-stock">재고 ${p.stock}</div>
+    </div>
+  `).join('');
+  drop.style.display = 'block';
+}
+
+function addProduct(pid) {
+  const p = allProducts.find(x => x.id === pid);
+  if (!p) return;
+
+  // 이미 추가된 경우 하이라이트
+  const existing = items.find(it => it.product.id === pid);
+  if (existing) {
+    const idx = items.indexOf(existing);
+    document.getElementById(`row-${idx}`)?.querySelector('.cs-inp')?.focus();
+    closeDrop();
+    return;
+  }
+
+  items.push({ product: p, cs: 1, unit_per_case: 1, unit_cost: p.cost || 0, note: '' });
+  document.getElementById('searchInp').value = '';
+  closeDrop();
+  renderTable();
+  // focus on new row's cs input
+  setTimeout(() => {
+    document.getElementById(`cs-${items.length - 1}`)?.focus();
+  }, 50);
+}
+
+function closeDrop() {
+  document.getElementById('searchDrop').style.display = 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-box')) closeDrop();
+});
+
+function removeItem(i) {
+  items.splice(i, 1);
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('itemsTbody');
+  document.getElementById('emptyRow')?.remove();
+
+  if (!items.length) {
+    tbody.innerHTML = `<tr class="empty-row" id="emptyRow"><td colspan="9">위 검색창에서 제품을 추가하세요</td></tr>`;
+    updateSummary(); return;
+  }
+
+  tbody.innerHTML = items.map((it, i) => {
+    const actual = it.cs * it.unit_per_case;
+    const newStock = it.product.stock + actual;
+    return `
+    <tr id="row-${i}">
+      <td style="font-weight:500;min-width:160px">${it.product.name}</td>
+      <td style="font-size:11px;color:var(--fg3);font-family:'IBM Plex Mono',monospace">${it.product.barcode || '-'}</td>
+      <td><span class="stock-badge">${it.product.stock} → <strong>${newStock}</strong></span></td>
+      <td style="text-align:center;width:80px">
+        <input type="number" class="cell-inp cs-inp" id="cs-${i}" value="${it.cs}" min="1"
+          style="width:60px;text-align:center" oninput="updateRow(${i},'cs',this.value)">
+      </td>
+      <td style="text-align:center;width:70px">
+        <input type="number" class="cell-inp" id="upc-${i}" value="${it.unit_per_case}" min="1"
+          style="width:50px;text-align:center" oninput="updateRow(${i},'unit_per_case',this.value)">
+      </td>
+      <td style="text-align:center" id="actual-${i}">
+        <span class="computed">${actual}</span>
+        ${it.unit_per_case > 1 ? `<span style="font-size:10px;color:var(--fg2);display:block">${it.cs}×${it.unit_per_case}</span>` : ''}
+      </td>
+      <td style="text-align:right;width:90px">
+        <input type="number" class="cell-inp" id="cost-${i}" value="${it.unit_cost.toFixed(2)}" min="0" step="0.01"
+          style="width:80px;text-align:right" oninput="updateRow(${i},'unit_cost',this.value)">
+      </td>
+      <td>
+        <input type="text" class="cell-inp" id="note-${i}" value="${it.note}"
+          placeholder="메모 (선택)" oninput="updateRow(${i},'note',this.value)">
+      </td>
+      <td>
+        <button class="del-btn" onclick="removeItem(${i})" title="제거">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+  updateSummary();
+}
+
+function updateRow(i, field, val) {
+  if (field === 'cs')           items[i].cs = Math.max(1, parseInt(val) || 1);
+  else if (field === 'unit_per_case') items[i].unit_per_case = Math.max(1, parseInt(val) || 1);
+  else if (field === 'unit_cost')     items[i].unit_cost = parseFloat(val) || 0;
+  else if (field === 'note')          items[i].note = val;
+
+  // update computed cells
+  const actual = items[i].cs * items[i].unit_per_case;
+  const newStock = items[i].product.stock + actual;
+  const cell = document.getElementById(`actual-${i}`);
+  if (cell) {
+    cell.innerHTML = `<span class="computed">${actual}</span>` +
+      (items[i].unit_per_case > 1
+        ? `<span style="font-size:10px;color:var(--fg2);display:block">${items[i].cs}×${items[i].unit_per_case}</span>`
+        : '');
+  }
+  // update stock badge
+  const row = document.getElementById(`row-${i}`);
+  if (row) {
+    const badge = row.querySelector('.stock-badge');
+    if (badge) badge.innerHTML = `${items[i].product.stock} → <strong>${newStock}</strong>`;
+  }
+  updateSummary();
+}
+
+function updateSummary() {
+  const info = document.getElementById('summaryInfo');
+  const btn = document.getElementById('submitBtn');
+  if (!items.length) {
+    info.innerHTML = '항목 없음';
+    btn.disabled = true; return;
+  }
+  const totalItems = items.length;
+  const totalUnits = items.reduce((s, it) => s + it.cs * it.unit_per_case, 0);
+  info.innerHTML = `<strong>${totalItems}</strong>종류 · 총 <strong>${totalUnits}</strong>개 입고 예정`;
+  btn.disabled = false;
+}
+
+function clearAll() {
+  items = [];
+  renderTable();
+  document.getElementById('resultPanel').style.display = 'none';
+}
+
+async function submitAll() {
+  if (!items.length) return;
+  const supplier = document.getElementById('metaSupplier').value;
+  const orderNo  = document.getElementById('metaOrderNo').value.trim() || null;
+  const dateVal  = document.getElementById('metaDate').value;
+  const noteBase = dateVal ? `수동입고 ${dateVal}` : '수동입고';
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '처리 중…';
+
+  const results = [];
+  let success = 0;
+
+  for (const it of items) {
+    const qty = it.cs * it.unit_per_case;
+    try {
+      const res = await fetch(`${API}/api/stock/receive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: it.product.id,
+          quantity:   qty,
+          unit_cost:  it.unit_cost || undefined,
+          supplier:   supplier || undefined,
+          order_no:   orderNo || undefined,
+          note:       it.note ? `${noteBase} / ${it.note}` : noteBase,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || res.status);
+      const data = await res.json();
+      results.push({ name: it.product.name, qty, before: data.stock_before, after: data.stock_after, ok: true });
+      it.product.stock = data.stock_after;  // 로컬 업데이트
+      success++;
+    } catch(e) {
+      results.push({ name: it.product.name, qty, ok: false, err: e.message });
+    }
+  }
+
+  btn.textContent = '입고 처리';
+  btn.disabled = false;
+
+  // 결과 표시
+  const panel = document.getElementById('resultPanel');
+  const rItems = document.getElementById('resultItems');
+  rItems.innerHTML = results.map(r =>
+    r.ok
+      ? `<div class="result-item">✅ <strong>${r.name}</strong> — ${r.before} → <strong>${r.after}</strong> (+${r.qty}개)</div>`
+      : `<div class="result-item" style="color:var(--red)">❌ <strong>${r.name}</strong> — 오류: ${r.err}</div>`
+  ).join('');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  if (success === results.length) {
+    showToast(`✅ ${success}개 제품 입고 완료`, 'success');
+    items = [];
+    renderTable();
+    // notify other tabs
+    try { new BroadcastChannel('inventory-update').postMessage({ type: 'stock_updated' }); } catch {}
+  } else {
+    showToast(`⚠️ ${success}/${results.length} 완료, 일부 오류`, 'error');
+  }
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = '', 2800);
+}
+
+init();
+</script>
