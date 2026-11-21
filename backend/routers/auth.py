@@ -38,6 +38,35 @@ def check_token(token: str = ""):
     return {"ok": True}
 
 
+DEFAULT_CREDS = {"username": "admin", "password": "admin1234"}
+
+def _is_default() -> bool:
+    creds = _get_credentials()
+    return creds == DEFAULT_CREDS
+
+@router.post("/register")
+async def register(request: Request):
+    """처음 사용 시 또는 기본 계정 상태일 때만 계정 등록 허용"""
+    if not _is_default():
+        raise HTTPException(403, "이미 계정이 등록되어 있습니다. 계정 설정에서 변경해주세요.")
+    body = await request.json()
+    username = (body.get("username") or "").strip()
+    password = (body.get("password") or "").strip()
+    if len(username) < 2:
+        raise HTTPException(400, "아이디는 2자 이상이어야 합니다")
+    if len(password) < 4:
+        raise HTTPException(400, "비밀번호는 4자 이상이어야 합니다")
+    path = os.path.join(os.path.dirname(__file__), "../../auth.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"username": username, "password": password}, f, ensure_ascii=False, indent=2)
+    return {"ok": True}
+
+
+@router.get("/is-default")
+def is_default():
+    return {"default": _is_default()}
+
+
 @router.get("/me")
 def get_me(token: str = ""):
     if token not in _tokens:
