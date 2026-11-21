@@ -454,6 +454,10 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
        style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:4px 11px;border-radius:6px;text-decoration:none;white-space:nowrap">📋 운영 가이드</a>
     <a href="/account.html" title="계정 설정"
        style="font-size:18px;text-decoration:none;color:var(--muted);line-height:1">⚙️</a>
+    <button onclick="authLogout()"
+       style="font-size:12px;font-weight:600;color:var(--muted);background:none;border:1.5px solid var(--border);padding:4px 11px;border-radius:6px;cursor:pointer;white-space:nowrap"
+       onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+       onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">로그아웃</button>
     <span class="conn-dot" id="connDot">● 연결 중…</span>
   </div>
 </nav>
