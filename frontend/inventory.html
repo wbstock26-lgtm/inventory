@@ -404,9 +404,9 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
 }
 .sales-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .sales-tab:hover:not(.active) { color: var(--fg); background: var(--surface2); }
-#salesTabContent, #receiveTabContent { flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
-#salesTabContent.tab-visible, #receiveTabContent.tab-visible { display: flex; }
-#salesTabContent:not(.tab-visible), #receiveTabContent:not(.tab-visible) { display: none; }
+#salesTabContent, #receiveTabContent, #splitTabContent { flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
+#salesTabContent.tab-visible, #receiveTabContent.tab-visible, #splitTabContent.tab-visible { display: flex; }
+#salesTabContent:not(.tab-visible), #receiveTabContent:not(.tab-visible), #splitTabContent:not(.tab-visible) { display: none; }
 .sales-body { flex: 1; overflow-y: auto; padding: 0; }
 .sales-summary-bar {
   padding: 10px 20px; background: var(--surface2); border-bottom: 1px solid var(--border);
