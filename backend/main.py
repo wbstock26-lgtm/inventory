@@ -3,8 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
-import subprocess
-from datetime import datetime
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from sqlalchemy import text
 from .database import engine
@@ -12,25 +13,8 @@ from . import models
 from .routers import products, stock, orders, sku_map, ocr, auth
 
 
-def _git_sync_db():
-    """inventory.db 변경 시 자동 커밋 & 푸시"""
-    root = os.path.join(os.path.dirname(__file__), "..")
-    try:
-        subprocess.run(["git", "add", "inventory.db"], cwd=root, check=True, capture_output=True)
-        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=root, capture_output=True)
-        if diff.returncode != 0:  # 변경 있음
-            msg = f"data: DB 자동 동기화 {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-            subprocess.run(["git", "commit", "-m", msg], cwd=root, check=True, capture_output=True)
-            subprocess.run(["git", "push"], cwd=root, check=True, capture_output=True)
-            print(f"[DB 동기화] GitHub 푸시 완료 — {msg}")
-        else:
-            print("[DB 동기화] 변경 없음")
-    except Exception as e:
-        print(f"[DB 동기화] 실패: {e}")
-
-
 def _ensure_indexes():
-    """기존 DB에 성능 인덱스 추가 (없으면 생성)"""
+    """성능 인덱스 추가 (없으면 생성)"""
     with engine.connect() as conn:
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_sm_product_id ON stock_movements(product_id)"
@@ -52,7 +36,6 @@ async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=engine)
     _ensure_indexes()
     yield
-    _git_sync_db()  # 서버 종료 시 자동 동기화
 
 
 app = FastAPI(

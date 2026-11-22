@@ -5,3 +5,4 @@ backups/
 .claude/
 *.db-shm
 *.db-wal
+.env
