@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <title>Little Red Deer Store — 재고 관리</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script src="/auth.js"></script>
@@ -686,7 +686,7 @@ tr.inv-hl td { animation: inv-highlight 2s ease forwards; }
 </div>
 
 <script>
-const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+const API_BASE = '';
 
 // ── Split 24K/12K 마킹 ───────────────────────────────────────────
 function lsGet(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }

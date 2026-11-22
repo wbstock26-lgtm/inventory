@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <title>제품 일괄 등록</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <script src="/auth.js"></script>
@@ -248,7 +248,7 @@ tbody tr:hover td { background: var(--surface2); }
 </div>
 
 <script>
-const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+const API_BASE = '';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // UPC → {name, count, files} 맵

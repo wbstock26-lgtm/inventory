@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <title>발주 파일 입고 처리</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <script src="/auth.js"></script>
@@ -689,7 +689,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
    API 설정
 ══════════════════════════════════ */
 // 로컬 서버에서 서빙될 때는 상대 경로, 외부에서 열릴 때는 localhost
-const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+const API_BASE = '';
 const bc = new BroadcastChannel('inventory-update');
 
 let INVENTORY = [];  // GET /api/products 에서 로드

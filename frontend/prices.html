@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <title>판매가 관리 — Little Red Deer Store</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script src="/auth.js"></script>
@@ -523,7 +523,7 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+const API_BASE = '';
 const DEPT_MAP = { Connect:'01', BDL:'21', Sleeman:'03' };
 const bc = new BroadcastChannel('inventory-update');
 

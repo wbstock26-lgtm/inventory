@@ -1,6 +1,6 @@
-/* 공유 인증 가드 — 모든 페이지에서 로드 */
+﻿/* 공유 인증 가드 — 모든 페이지에서 로드 */
 (function () {
-  const API = 'http://127.0.0.1:8000';
+  const API = '';
   const LOGIN_PAGE = '/login.html';
 
   if (location.pathname.endsWith('/login.html')) return;
@@ -83,7 +83,7 @@
 function authLogout() {
   const token = localStorage.getItem('authToken');
   if (token) {
-    fetch('http://127.0.0.1:8000/api/auth/logout', {
+    fetch('/api/auth/logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),

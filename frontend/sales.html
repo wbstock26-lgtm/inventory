@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <title>판매 입력 — Little Red Deer Store</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script src="/auth.js"></script>
@@ -486,7 +486,7 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
 </div>
 
 <script>
-const API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
+const API_BASE = '';
 const bc = new BroadcastChannel('inventory-update');
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
