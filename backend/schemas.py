@@ -7,7 +7,7 @@ from datetime import datetime
 class ProductBase(BaseModel):
     barcode:   Optional[str] = None   # UPC 12자리 — 기본 검색 키
     name:      str
-    category:  str = "Alcohol"
+    category:  Optional[str] = "Alcohol"
     size:      Optional[str] = None
     vendor:         Optional[str] = None   # Connect / BDL / Sleeman
     unit:           float = 0.0
