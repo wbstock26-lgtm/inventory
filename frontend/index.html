@@ -355,7 +355,7 @@ tbody tr:hover td { background: var(--bg); }
       </div>
       <div class="kpi-cell" onclick="showDroppedModal()" style="cursor:pointer">
         <div class="kpi-num red" id="kpi6">–</div>
-        <div class="kpi-title">재고 고갈 품목<br><span style="font-size:10px;color:var(--fg3)">5개↑→1개↓</span></div>
+        <div class="kpi-title">재고 고갈 품목<br><span style="font-size:10px;color:var(--fg3)">이번 달 5개↑→1개↓</span></div>
       </div>
     </div>
 
@@ -501,11 +501,15 @@ function renderKpi() {
   const inCount   = allMovements.filter(m => m.type === 'in').length;
   const outCount  = allMovements.filter(m => m.type === 'out').length;
 
-  // 5개 이상 → 1개 이하로 떨어진 제품: 현재 재고 ≤1 이면서 이동 이력에서 stock_after ≥5 였던 적 있는 제품
+  // 이번 달 5개↑→1개↓: 현재 재고 ≤1 이면서 이번 달 이동 이력에서 stock_after ≥5 였던 적 있는 제품
+  const now0 = new Date();
+  const thisMonth = `${now0.getFullYear()}-${String(now0.getMonth()+1).padStart(2,'0')}`;
   const lowIds = new Set(filteredProducts.filter(p => p.stock <= 1).map(p => p.id));
   const droppedIds = new Set();
   allMovements.forEach(m => {
-    if (lowIds.has(m.product_id) && m.stock_after >= 5) droppedIds.add(m.product_id);
+    if (!lowIds.has(m.product_id)) return;
+    if ((m.created_at || '').slice(0,7) !== thisMonth) return;
+    if (m.stock_after >= 5) droppedIds.add(m.product_id);
   });
   const droppedCount = droppedIds.size;
 
@@ -574,17 +578,21 @@ async function showLowStockModal() {
   });
 }
 
-// ── Dropped stock modal (5개↑→1개↓) ───────────────────
+// ── Dropped stock modal (이번 달 5개↑→1개↓) ───────────
 function showDroppedModal() {
+  const now0 = new Date();
+  const thisMonth = `${now0.getFullYear()}-${String(now0.getMonth()+1).padStart(2,'0')}`;
+
   document.getElementById('monthModal').classList.add('open');
-  document.getElementById('modalTitle').textContent = '재고 고갈 품목 (5개↑→1개↓)';
+  document.getElementById('modalTitle').textContent = `재고 고갈 품목 — ${thisMonth} (5개↑→1개↓)`;
   document.getElementById('modalEditBar').style.display = 'none';
 
-  // 현재 재고 ≤1 이면서 이동 이력에서 stock_after ≥5 였던 적 있는 제품
+  // 현재 재고 ≤1 이면서 이번 달 이동 이력에서 stock_after ≥5 였던 적 있는 제품
   const lowIds = new Set(filteredProducts.filter(p => p.stock <= 1).map(p => p.id));
   const maxAfter = {};
   allMovements.forEach(m => {
     if (!lowIds.has(m.product_id)) return;
+    if ((m.created_at || '').slice(0,7) !== thisMonth) return;
     if ((maxAfter[m.product_id] || 0) < m.stock_after) maxAfter[m.product_id] = m.stock_after;
   });
   const rows = filteredProducts
