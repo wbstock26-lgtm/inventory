@@ -62,7 +62,8 @@ a { color: inherit; text-decoration: none; }
 .page-header p { color: var(--fg2); font-size: 12px; margin-top: 4px; }
 
 /* ── Right Panel ── */
-.right-panel { width: 270px; flex-shrink: 0; position: sticky; top: 66px; }
+.panels-col { display: flex; flex-direction: column; gap: 12px; width: 270px; flex-shrink: 0; position: sticky; top: 66px; align-self: flex-start; }
+.right-panel { width: 100%; }
 .panel-header { font-size: 11px; font-weight: 700; color: var(--fg2); text-transform: uppercase;
   letter-spacing: .06em; padding: 8px 10px 8px 12px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -142,7 +143,7 @@ a { color: inherit; text-decoration: none; }
 .rule-custom-tag { font-size: 10px; background: var(--orange-bg); color: var(--orange);
   border-radius: 3px; padding: 1px 5px; font-weight: 600; margin-left: 4px; }
 
-@media (max-width: 860px) { .main { flex-direction: column; } .right-panel { width: 100%; position: static; } .panel-list { max-height: 220px; } }
+@media (max-width: 860px) { .main { flex-direction: column; } .panels-col { width: 100%; position: static; } .panel-list { max-height: 220px; } }
 
 /* ── Card ── */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); }
@@ -347,7 +348,10 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div><!-- /left-col -->
 
-<!-- 오른쪽: 24캔 제품 목록 -->
+<!-- 오른쪽: 패널 컬럼 -->
+<div class="panels-col">
+
+<!-- 패널 1: 24/12캔 목록 -->
 <div class="card right-panel" style="padding:0;overflow:hidden;">
   <div class="panel-header">
     <div class="panel-header-left">
@@ -367,6 +371,29 @@ tbody tr:last-child td { border-bottom: none; }
     <div style="padding:20px;text-align:center;color:var(--fg3)">로딩 중…</div>
   </div>
 </div>
+
+<!-- 패널 2: 분할 후 제품 목록 -->
+<div class="card right-panel" style="padding:0;overflow:hidden;">
+  <div class="panel-header">
+    <div class="panel-header-left">
+      <span>📦 분할 후 제품</span>
+      <span class="panel-hidden-badge" id="dstHiddenBadge"></span>
+    </div>
+    <button class="panel-add-btn" onclick="toggleDstAddSearch()" title="제품 추가">＋</button>
+  </div>
+  <div class="panel-add-search" id="dstAddSearchWrap" style="display:none">
+    <input id="dstAddSearchInput" placeholder="추가할 제품 검색…" oninput="searchDstForAdd(this.value)" autocomplete="off">
+    <div class="panel-add-drop" id="dstAddSearchDrop" style="display:none"></div>
+  </div>
+  <div class="panel-search">
+    <input id="dstPanelSearch" placeholder="제품명 검색…" oninput="filterDstPanel(this.value)" autocomplete="off">
+  </div>
+  <div class="panel-list" id="dstPanelList">
+    <div style="padding:20px;text-align:center;color:var(--fg3)">로딩 중…</div>
+  </div>
+</div>
+
+</div><!-- /panels-col -->
 
 </div><!-- /main -->
 <div id="spl-ctx-menu">
@@ -397,16 +424,26 @@ let _pairs   = lsGet('split_pairs',  {});
 let _24k     = new Set(lsGet('split_24k', []));
 let _12k     = new Set(lsGet('split_12k', []));
 
-function saveHidden()  { lsSet('split_hidden',  [..._hidden]); }
-function saveCustom()  { lsSet('split_custom',  [..._custom]); }
-function saveRatios()  { lsSet('split_ratios',  _ratios); }
-function savePairs()   { lsSet('split_pairs',   _pairs); }
+// 두 번째 패널 (분할 후 제품) 상태
+let _dstCustom   = new Set(lsGet('split_dst_custom', []));
+let _dstHidden   = new Set(lsGet('split_dst_hidden', []));
+let _dstProducts = [];
+let _dstFilter   = '';
+let _dstAddOpen  = false;
+
+function saveHidden()    { lsSet('split_hidden',     [..._hidden]); }
+function saveCustom()    { lsSet('split_custom',     [..._custom]); }
+function saveRatios()    { lsSet('split_ratios',     _ratios); }
+function savePairs()     { lsSet('split_pairs',      _pairs); }
+function saveDstCustom() { lsSet('split_dst_custom', [..._dstCustom]); }
+function saveDstHidden() { lsSet('split_dst_hidden', [..._dstHidden]); }
 
 // ── 제품 목록 로드 ───────────────────────────────────────────────
 async function loadProducts() {
   const r = await fetch(`${API}/api/products?limit=2000`);
   _products = await r.json();
   rebuildPanel();
+  rebuildDstPanel();
 }
 
 function getCanSize(name) {
@@ -501,6 +538,109 @@ function filterPanel(q) {
 
 function refreshPanel() { filterPanel(_currentFilter); }
 
+// ── 두 번째 패널 (분할 후 제품) ──────────────────────────────────
+function rebuildDstPanel() {
+  // _pairs 값(연결된 분할 후 제품)을 자동으로 포함
+  const pairedIds = new Set(Object.values(_pairs).map(Number));
+  const allIds = new Set([...pairedIds, ..._dstCustom]);
+  _dstProducts = _products.filter(p => allIds.has(p.id) && !_dstHidden.has(p.id));
+  _dstProducts.sort((a, b) => a.name.localeCompare(b.name));
+  updateDstHiddenBadge();
+  filterDstPanel(document.getElementById('dstPanelSearch')?.value || '');
+}
+
+function updateDstHiddenBadge() {
+  const el = document.getElementById('dstHiddenBadge');
+  if (!el) return;
+  if (_dstHidden.size === 0) { el.textContent = ''; return; }
+  el.innerHTML = `숨김 ${_dstHidden.size}개 · <a onclick="clearDstHidden()">해제</a>`;
+}
+
+function renderDstPanel(list) {
+  const el = document.getElementById('dstPanelList');
+  if (!list.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--fg3)">해당 제품 없음</div>';
+    return;
+  }
+  el.innerHTML = list.map(p => `
+    <div class="panel-item" onclick="selectDstProduct(${p.id})">
+      <span class="panel-item-name" title="${p.name}">${p.name}</span>
+      <span class="panel-item-right">
+        <span class="panel-item-stock${p.stock < 0 ? ' neg' : ''}">재고 ${p.stock}</span>
+        <span class="panel-item-push">▶</span>
+        <button class="panel-item-del" onclick="event.stopPropagation();removeDstFromPanel(${p.id})" title="목록에서 숨기기">×</button>
+      </span>
+    </div>`).join('');
+}
+
+function filterDstPanel(q) {
+  _dstFilter = q || '';
+  const val = _dstFilter.trim().toLowerCase();
+  if (!val) { renderDstPanel(_dstProducts); return; }
+  const terms = val.split(/\s+/).filter(Boolean);
+  renderDstPanel(_dstProducts.filter(p => {
+    const nm = p.name.toLowerCase();
+    return terms.every(t => nm.includes(t));
+  }));
+}
+
+function selectDstProduct(id) {
+  selectProduct('dst', id);
+  document.getElementById('dstInput').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function removeDstFromPanel(id) {
+  _dstHidden.add(id); _dstCustom.delete(id);
+  saveDstHidden(); saveDstCustom();
+  rebuildDstPanel();
+}
+
+function clearDstHidden() {
+  _dstHidden.clear();
+  saveDstHidden();
+  rebuildDstPanel();
+}
+
+function toggleDstAddSearch() {
+  _dstAddOpen = !_dstAddOpen;
+  document.getElementById('dstAddSearchWrap').style.display = _dstAddOpen ? '' : 'none';
+  if (_dstAddOpen) document.getElementById('dstAddSearchInput').focus();
+  else {
+    document.getElementById('dstAddSearchInput').value = '';
+    document.getElementById('dstAddSearchDrop').style.display = 'none';
+  }
+}
+
+function searchDstForAdd(q) {
+  const val = q.trim().toLowerCase();
+  const drop = document.getElementById('dstAddSearchDrop');
+  if (!val) { drop.style.display = 'none'; return; }
+  const terms = val.split(/\s+/).filter(Boolean);
+  const panelIds = new Set(_dstProducts.map(p => p.id));
+  const hits = _products.filter(p => {
+    if (panelIds.has(p.id)) return false;
+    const nm = (p.name || '').toLowerCase();
+    return terms.every(t => nm.includes(t));
+  }).slice(0, 10);
+  if (!hits.length) { drop.style.display = 'none'; return; }
+  drop.innerHTML = hits.map(p => `
+    <div class="panel-add-drop-item" onclick="addDstToPanel(${p.id})">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${p.name}</span>
+      <span style="font-size:11px;color:var(--fg2);flex-shrink:0">재고 ${p.stock}</span>
+    </div>`).join('');
+  drop.style.display = '';
+}
+
+function addDstToPanel(id) {
+  _dstHidden.delete(id); _dstCustom.add(id);
+  saveDstHidden(); saveDstCustom();
+  document.getElementById('dstAddSearchInput').value = '';
+  document.getElementById('dstAddSearchDrop').style.display = 'none';
+  toggleDstAddSearch();
+  rebuildDstPanel();
+  showToast('✅ 패널에 추가됐습니다', 'ok');
+}
+
 // ── 패널 추가 / 숨기기 ──────────────────────────────────────────
 function removeFromPanel(id) {
   _hidden.add(id); _custom.delete(id);
@@ -592,6 +732,7 @@ function confirmPairPartner(fromId, toId) {
   savePairs();
   _editingPairId = null;
   refreshPanel();
+  rebuildDstPanel();
   selectProduct('src', fromId);
   selectProduct('dst', toId);
   showToast('✅ 분할 제품이 연결됐습니다', 'ok');
@@ -601,6 +742,7 @@ function clearPair(fromId) {
   delete _pairs[fromId];
   savePairs();
   refreshPanel();
+  rebuildDstPanel();
 }
 
 // ── 제품 검색 / 선택 ────────────────────────────────────────────
@@ -882,6 +1024,11 @@ document.addEventListener('click', e => {
   if (_addOpen && addWrap && !addWrap.contains(e.target) && e.target !== addBtn) {
     _addOpen = false;
     addWrap.style.display = 'none';
+  }
+  const dstAddWrap = document.getElementById('dstAddSearchWrap');
+  if (_dstAddOpen && dstAddWrap && !dstAddWrap.contains(e.target)) {
+    _dstAddOpen = false;
+    dstAddWrap.style.display = 'none';
   }
   if (_editingPairId !== null) {
     const prow = document.getElementById(`prow-${_editingPairId}`);
