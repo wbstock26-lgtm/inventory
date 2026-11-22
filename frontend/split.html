@@ -379,7 +379,7 @@ tbody tr:last-child td { border-bottom: none; }
       <span>📦 분할 후 제품</span>
       <span class="panel-hidden-badge" id="dstHiddenBadge"></span>
     </div>
-    <button class="panel-add-btn" onclick="toggleDstAddSearch()" title="제품 추가">＋</button>
+    <button class="panel-add-btn" id="dstAddBtn" onclick="toggleDstAddSearch()" title="제품 추가">＋</button>
   </div>
   <div class="panel-add-search" id="dstAddSearchWrap" style="display:none">
     <input id="dstAddSearchInput" placeholder="추가할 제품 검색…" oninput="searchDstForAdd(this.value)" autocomplete="off">
@@ -1026,7 +1026,8 @@ document.addEventListener('click', e => {
     addWrap.style.display = 'none';
   }
   const dstAddWrap = document.getElementById('dstAddSearchWrap');
-  if (_dstAddOpen && dstAddWrap && !dstAddWrap.contains(e.target)) {
+  const dstAddBtn  = document.getElementById('dstAddBtn');
+  if (_dstAddOpen && dstAddWrap && !dstAddWrap.contains(e.target) && e.target !== dstAddBtn) {
     _dstAddOpen = false;
     dstAddWrap.style.display = 'none';
   }
