@@ -95,7 +95,8 @@ a { color: inherit; text-decoration: none; }
 
 /* Content grid */
 .content { padding: 18px 20px; display: flex; flex-direction: column; gap: 18px; }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+.chart-wrap.rank { height: 380px; }
 .row3 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 
 /* Cards */
@@ -354,32 +355,33 @@ tbody tr:hover td { background: var(--bg); }
     </div>
 
     <div class="content">
-      <!-- Row 1: Stock bar + Sales by product -->
+      <!-- Row 1: 판매·입고 순위 3개 차트 -->
       <div class="row2">
         <div class="card">
           <div class="card-head">
-            <span class="card-title">제품별 현재 재고</span>
-            <span class="card-sub">Stock Level by Product</span>
-          </div>
-          <div class="legend">
-            <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>현재 재고</div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>최소 재고 기준</div>
+            <span class="card-title">올해 판매 순위</span>
+            <span class="card-sub" id="yearSalesSub">—</span>
           </div>
           <div class="card-body">
-            <div class="chart-wrap tall"><canvas id="stockChart"></canvas></div>
+            <div class="chart-wrap rank"><canvas id="yearSalesChart"></canvas></div>
           </div>
         </div>
         <div class="card">
           <div class="card-head">
-            <span class="card-title">판매 이동 현황</span>
-            <span class="card-sub">Movements by Type | 입고 / 판매</span>
-          </div>
-          <div class="legend">
-            <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>입고 (in)</div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>판매 (out)</div>
+            <span class="card-title">이번 달 입고 순위</span>
+            <span class="card-sub" id="monthInSub">—</span>
           </div>
           <div class="card-body">
-            <div class="chart-wrap tall"><canvas id="movChart" style="cursor:pointer"></canvas></div>
+            <div class="chart-wrap rank"><canvas id="monthInChart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">이번 달 판매 순위</span>
+            <span class="card-sub" id="monthOutSub">—</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap rank"><canvas id="monthOutChart"></canvas></div>
           </div>
         </div>
       </div>
@@ -444,7 +446,7 @@ tbody tr:hover td { background: var(--bg); }
 <script>
 const API = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') ? '' : 'http://127.0.0.1:8000';
 let allProducts = [], allMovements = [], allOrders = [], filteredProducts = [];
-let stockChart, movChart, monthlySalesChart, monthlyPurchaseChart, annualChart, dailySalesChart;
+let yearSalesChart, monthInChart, monthOutChart, monthlySalesChart, monthlyPurchaseChart, annualChart, dailySalesChart;
 
 const BLUE   = '#5b7ec5';
 const BLUE_L = '#8aaad8';
@@ -479,8 +481,9 @@ function applyFilter() {
 
 function renderAll() {
   renderKpi();
-  renderStockChart();
-  renderMovChart();
+  renderYearSalesChart();
+  renderMonthInChart();
+  renderMonthOutChart();
   renderMonthlyCharts();
   renderDailySalesChart();
   renderAnnualChart();
@@ -558,81 +561,108 @@ async function showLowStockModal() {
 }
 
 // ── Stock bar chart ────────────────────────────────────
-function renderStockChart() {
-  const top10   = [...filteredProducts].sort((a,b) => b.stock - a.stock).slice(0, 10);
-  const labels  = top10.map(p => p.name.length > 18 ? p.name.slice(0,17)+'…' : p.name);
-  const stocks  = top10.map(p => p.stock);
-  const mins    = top10.map(p => p.min_stock);
+// ── 올해 판매 순위 ────────────────────────────────────
+function renderYearSalesChart() {
+  const yearStr = new Date().getFullYear().toString();
+  const map = {};
+  allMovements.forEach(m => {
+    if (m.type !== 'out') return;
+    const dateStr = m.order_no || (m.created_at ? m.created_at.slice(0,10) : '');
+    if (!dateStr.startsWith(yearStr)) return;
+    const name = m.product_name || String(m.product_id);
+    map[name] = (map[name] || 0) + m.quantity;
+  });
+  const top15 = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,15);
+  const labels = top15.map(([n]) => n.length > 17 ? n.slice(0,16)+'…' : n);
+  const data   = top15.map(([,v]) => v);
+  const total  = data.reduce((s,v) => s+v, 0);
 
-  const ctx = document.getElementById('stockChart').getContext('2d');
-  if (stockChart) stockChart.destroy();
-  stockChart = new Chart(ctx, {
+  const sub = document.getElementById('yearSalesSub');
+  if (sub) sub.textContent = `${yearStr}년 총 ${total.toLocaleString()}개`;
+
+  const ctx = document.getElementById('yearSalesChart').getContext('2d');
+  if (yearSalesChart) yearSalesChart.destroy();
+  yearSalesChart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: '현재 재고', data: stocks, backgroundColor: BLUE, borderRadius: 3, barPercentage: .7 },
-        { label: '최소 기준', data: mins,   backgroundColor: ORANGE, borderRadius: 3, barPercentage: .7 },
-      ]
-    },
+    data: { labels, datasets: [{ label: '판매', data, backgroundColor: ORANGE, borderRadius: 3, barPercentage: .7 }] },
     options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { mode: 'index' } },
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}개` } } },
       scales: {
         x: { grid: { color: GRID }, ticks: { font: { size: 11 } } },
-        y: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#374151' } }
+        y: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#374151' } }
       }
     }
   });
 }
 
-// ── Movement chart ────────────────────────────────────
-function renderMovChart() {
-  // group by product, show in vs out
-  const ctx = document.getElementById('movChart').getContext('2d');
-  if (movChart) movChart.destroy();
-
-  const productMap = {};
+// ── 이번 달 입고 순위 ─────────────────────────────────
+function renderMonthInChart() {
+  const now = new Date();
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const map = {};
   allMovements.forEach(m => {
-    const name = m.product_name || m.product_id;
-    if (!productMap[name]) productMap[name] = { in: 0, out: 0 };
-    if (m.type === 'in')  productMap[name].in  += m.quantity;
-    if (m.type === 'out') productMap[name].out += m.quantity;
+    if (m.type !== 'in') return;
+    const dateStr = m.created_at ? m.created_at.slice(0,7) : '';
+    if (dateStr !== monthStr) return;
+    const name = m.product_name || String(m.product_id);
+    map[name] = (map[name] || 0) + m.quantity;
   });
+  const top15 = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,15);
+  const labels = top15.map(([n]) => n.length > 17 ? n.slice(0,16)+'…' : n);
+  const data   = top15.map(([,v]) => v);
+  const total  = data.reduce((s,v) => s+v, 0);
 
-  // 판매(out) 기준 상위 10개
-  const top10entries = Object.entries(productMap)
-    .sort((a,b) => b[1].out - a[1].out)
-    .slice(0, 10);
-  const fullNames = top10entries.map(([n]) => n);
-  const labels    = fullNames.map(n => n.length > 16 ? n.slice(0,15)+'…' : n);
-  const inData  = top10entries.map(([,v]) => v.in);
-  const outData = top10entries.map(([,v]) => v.out);
+  const sub = document.getElementById('monthInSub');
+  if (sub) sub.textContent = `${monthStr} 총 ${total.toLocaleString()}개`;
 
-  movChart = new Chart(ctx, {
+  const ctx = document.getElementById('monthInChart').getContext('2d');
+  if (monthInChart) monthInChart.destroy();
+  monthInChart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: '입고', data: inData,  backgroundColor: BLUE_L, borderRadius: 3, barPercentage: .8 },
-        { label: '판매', data: outData, backgroundColor: ORANGE, borderRadius: 3, barPercentage: .8 },
-      ]
-    },
+    data: { labels, datasets: [{ label: '입고', data, backgroundColor: BLUE_L, borderRadius: 3, barPercentage: .7 }] },
     options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}개` } } },
       scales: {
         x: { grid: { color: GRID }, ticks: { font: { size: 11 } } },
         y: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#374151' } }
-      },
-      onClick(event, elements) {
-        if (!elements.length) return;
-        const el = elements[0];
-        const productName = fullNames[el.index];
-        const type = el.datasetIndex === 0 ? 'in' : 'out';
-        showMovDetail(productName, type);
+      }
+    }
+  });
+}
+
+// ── 이번 달 판매 순위 ─────────────────────────────────
+function renderMonthOutChart() {
+  const now = new Date();
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const map = {};
+  allMovements.forEach(m => {
+    if (m.type !== 'out') return;
+    const dateStr = m.order_no || (m.created_at ? m.created_at.slice(0,10) : '');
+    if (!dateStr.startsWith(monthStr)) return;
+    const name = m.product_name || String(m.product_id);
+    map[name] = (map[name] || 0) + m.quantity;
+  });
+  const top15 = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,15);
+  const labels = top15.map(([n]) => n.length > 17 ? n.slice(0,16)+'…' : n);
+  const data   = top15.map(([,v]) => v);
+  const total  = data.reduce((s,v) => s+v, 0);
+
+  const sub = document.getElementById('monthOutSub');
+  if (sub) sub.textContent = `${monthStr} 총 ${total.toLocaleString()}개`;
+
+  const ctx = document.getElementById('monthOutChart').getContext('2d');
+  if (monthOutChart) monthOutChart.destroy();
+  monthOutChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '판매', data, backgroundColor: ORANGE, borderRadius: 3, barPercentage: .7 }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}개` } } },
+      scales: {
+        x: { grid: { color: GRID }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#374151' } }
       }
     }
   });
