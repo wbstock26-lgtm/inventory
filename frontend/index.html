@@ -456,7 +456,7 @@ async function loadAll() {
   try {
     [allProducts, allMovements, allOrders] = await Promise.all([
       fetch(`${API}/api/products?limit=2000`).then(r => r.json()),
-      fetch(`${API}/api/stock/movements?limit=5000`).then(r => r.json()),
+      fetch(`${API}/api/stock/movements?limit=2000`).then(r => r.json()),
       fetch(`${API}/api/orders?status=received&limit=200`).then(r => r.json()),
     ]);
     applyFilter();

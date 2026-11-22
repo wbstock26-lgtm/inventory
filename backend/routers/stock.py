@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from typing import Optional, List
 
@@ -189,7 +189,11 @@ def get_movements(
     limit:      int = Query(100, le=10000),
     db: Session = Depends(get_db),
 ):
-    query = db.query(models.StockMovement).order_by(desc(models.StockMovement.created_at))
+    query = (
+        db.query(models.StockMovement)
+        .options(joinedload(models.StockMovement.product))
+        .order_by(desc(models.StockMovement.created_at))
+    )
     if product_id:
         query = query.filter(models.StockMovement.product_id == product_id)
     if supplier:
@@ -316,6 +320,7 @@ def get_sales_history(
     """판매 이력 조회 (out 타입 이동 기준)"""
     movements = (
         db.query(models.StockMovement)
+        .options(joinedload(models.StockMovement.product))
         .filter(models.StockMovement.type == "out")
         .order_by(desc(models.StockMovement.created_at))
         .limit(limit).all()
@@ -349,7 +354,7 @@ def delete_sales_by_date(sale_date: str, db: Session = Depends(get_db)):
 @router.patch("/movements/{movement_id}", response_model=schemas.MovementOut)
 def update_movement(movement_id: int, body: schemas.MovementUpdate, db: Session = Depends(get_db)):
     """개별 이동 수정 (수량/단가/메모)"""
-    m = db.query(models.StockMovement).filter(models.StockMovement.id == movement_id).first()
+    m = db.query(models.StockMovement).options(joinedload(models.StockMovement.product)).filter(models.StockMovement.id == movement_id).first()
     if not m:
         raise HTTPException(404, "이동 내역을 찾을 수 없습니다")
     if body.quantity is not None:
