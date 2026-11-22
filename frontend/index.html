@@ -337,9 +337,9 @@ tbody tr:hover td { background: var(--bg); }
         <div class="kpi-num" id="kpi1">–</div>
         <div class="kpi-title">전체 활성 제품</div>
       </div>
-      <div class="kpi-cell" onclick="showLowStockModal()" style="cursor:pointer">
-        <div class="kpi-num orange" id="kpi2">–</div>
-        <div class="kpi-title">재고 부족 경고</div>
+      <div class="kpi-cell" onclick="showDroppedModal()" style="cursor:pointer">
+        <div class="kpi-num red" id="kpi2">–</div>
+        <div class="kpi-title">재고 고갈 품목<br><span style="font-size:10px;color:var(--fg3)">이번 달 5개↑→1개↓</span></div>
       </div>
       <div class="kpi-cell">
         <div class="kpi-num" id="kpi3">–</div>
@@ -352,10 +352,6 @@ tbody tr:hover td { background: var(--bg); }
       <div class="kpi-cell">
         <div class="kpi-num" id="kpi5">–</div>
         <div class="kpi-title">총 판매 건수</div>
-      </div>
-      <div class="kpi-cell" onclick="showDroppedModal()" style="cursor:pointer">
-        <div class="kpi-num red" id="kpi6">–</div>
-        <div class="kpi-title">재고 고갈 품목<br><span style="font-size:10px;color:var(--fg3)">이번 달 5개↑→1개↓</span></div>
       </div>
     </div>
 
@@ -496,7 +492,6 @@ function renderAll() {
 
 // ── KPI ────────────────────────────────────────────────
 function renderKpi() {
-  const lowCount  = filteredProducts.filter(p => p.stock <= p.min_stock).length;
   const totalQty  = filteredProducts.reduce((s, p) => s + p.stock, 0);
   const inCount   = allMovements.filter(m => m.type === 'in').length;
   const outCount  = allMovements.filter(m => m.type === 'out').length;
@@ -514,14 +509,13 @@ function renderKpi() {
   const droppedCount = droppedIds.size;
 
   document.getElementById('kpi1').textContent = filteredProducts.length;
-  document.getElementById('kpi2').textContent = lowCount;
+  document.getElementById('kpi2').textContent = droppedCount;
   document.getElementById('kpi3').textContent = totalQty;
   document.getElementById('kpi4').textContent = inCount;
   document.getElementById('kpi5').textContent = outCount;
-  document.getElementById('kpi6').textContent = droppedCount;
 
   document.getElementById('sb-total').textContent    = filteredProducts.length;
-  document.getElementById('sb-lowstock').textContent = lowCount;
+  document.getElementById('sb-lowstock').textContent = droppedCount;
   const totalVal = filteredProducts.reduce((s, p) => s + p.stock * p.cost, 0);
   document.getElementById('sb-value').textContent    = '$' + totalVal.toFixed(0);
   document.getElementById('sb-sales').textContent    = outCount;
