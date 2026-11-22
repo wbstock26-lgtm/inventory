@@ -67,6 +67,16 @@ def is_default():
     return {"default": _is_default()}
 
 
+@router.post("/reset")
+def reset_credentials():
+    """비밀번호를 잊은 경우 기본값으로 초기화 (admin / admin1234)"""
+    path = os.path.join(os.path.dirname(__file__), "../../auth.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(DEFAULT_CREDS, f, ensure_ascii=False, indent=2)
+    _tokens.clear()
+    return {"ok": True}
+
+
 @router.get("/me")
 def get_me(token: str = ""):
     if token not in _tokens:

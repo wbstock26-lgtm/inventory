@@ -167,6 +167,9 @@
       </div>
       <button class="btn" type="submit" id="loginBtn">로그인</button>
       <div class="msg" id="loginMsg"></div>
+      <div style="text-align:center; margin-top:14px;">
+        <a href="#" id="resetLink" onclick="resetPassword()" style="font-size:13px; color:var(--fg2); text-decoration:none; border-bottom:1px dashed var(--fg2);">비밀번호를 잊으셨나요?</a>
+      </div>
     </form>
   </div>
 
@@ -258,6 +261,22 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
     document.getElementById('password').focus();
   }
 });
+
+// 비밀번호 초기화
+async function resetPassword() {
+  if (!confirm('비밀번호를 초기화하면 기본 계정(admin / admin1234)으로 돌아갑니다.\n계속하시겠습니까?')) return;
+  try {
+    const r = await fetch(`${API}/api/auth/reset`, { method: 'POST' });
+    if (r.ok) {
+      showMsg('loginMsg', '초기화 완료! 계정 등록 탭에서 새 계정을 만드세요.', 'success');
+      setTimeout(() => switchTab('register'), 1500);
+    } else {
+      showMsg('loginMsg', '초기화 실패. 다시 시도해주세요.', 'error');
+    }
+  } catch {
+    showMsg('loginMsg', '서버 연결 오류가 발생했습니다.', 'error');
+  }
+}
 
 // 계정 등록
 document.getElementById('registerForm').addEventListener('submit', async e => {
