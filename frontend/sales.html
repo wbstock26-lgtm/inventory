@@ -713,6 +713,28 @@ function setYesterday() {
   document.getElementById('saleDate').value = d.toISOString().slice(0, 10);
 }
 
+// ── Barcode lookup helper (EAN-13 ↔ UPC-A + fuzzy) ────
+function findByBarcode(upc) {
+  if (!upc) return null;
+  // 1) exact
+  let p = inventory.find(x => x.barcode === upc);
+  if (p) return p;
+  // 2) 12자리 → EAN-13 (앞에 0 추가)
+  if (upc.length === 12) {
+    p = inventory.find(x => x.barcode === '0' + upc);
+    if (p) return p;
+  }
+  // 3) 13자리 EAN-13 → UPC-A (앞 0 제거)
+  if (upc.length === 13 && upc[0] === '0') {
+    p = inventory.find(x => x.barcode === upc.slice(1));
+    if (p) return p;
+  }
+  // 4) 뒤 11자리 suffix match (OCR 한 자리 오인식 보완)
+  const suffix = upc.slice(-11);
+  p = inventory.find(x => x.barcode && x.barcode.endsWith(suffix));
+  return p || null;
+}
+
 // ── GTI Report Parser ──────────────────────────────────
 // Format: "048415000307 - J.P Wiser's Deluxe 750    1    $37.51    $25.87    $11.64    31.02%"
 // 두번째 금액(cost2)은 원가로 사용
@@ -808,7 +830,7 @@ async function autoSaveCosts(items) {
   const toUpdate = [];
   for (const item of items) {
     if (!item.cost2 || item.cost2 <= 0) continue;
-    const product = inventory.find(p => p.barcode === item.upc);
+    const product = findByBarcode(item.upc);
     if (!product) continue;
     if (product.cost && product.cost > 0) continue;
     toUpdate.push({ id: product.id, name: product.name, cost: item.cost2 });
@@ -856,7 +878,7 @@ function addManualRow() {
   const amt = parseFloat(document.getElementById('manualAmt').value) || 0;
   if (!upc || qty <= 0) { showToast('UPC와 수량을 입력하세요', 'error'); return; }
 
-  const product = inventory.find(p => p.barcode === upc);
+  const product = findByBarcode(upc);
   manualItems.push({ upc, name: product?.name || '직접입력', qty, amount: amt });
 
   document.getElementById('manualUpc').value = '';
@@ -889,7 +911,7 @@ function renderPreview() {
 
   let matched = 0, totalQty = 0;
   tbody.innerHTML = allItems.map((item, idx) => {
-    const product = inventory.find(p => p.barcode === item.upc);
+    const product = findByBarcode(item.upc);
     const isMatch = !!product;
     if (isMatch) matched++;
 
@@ -963,7 +985,7 @@ function renderPreview() {
 }
 
 function updateChips() {
-  const matched = previewItems.filter(i => inventory.find(p => p.barcode === i.upc)).length;
+  const matched = previewItems.filter(i => findByBarcode(i.upc)).length;
   const totalQty = previewItems.reduce((s, i) => s + i.qty, 0);
   document.getElementById('chipMatched').textContent = matched;
   document.getElementById('chipUnmatched').textContent = previewItems.length - matched;
@@ -1090,7 +1112,7 @@ document.getElementById('previewBody').addEventListener('contextmenu', e => {
   const idx = parseInt(tr.dataset.idx);
   _salCtxItem = previewItems[idx] || null;
   if (!_salCtxItem) return;
-  const matched = inventory.find(p => p.barcode === _salCtxItem.upc);
+  const matched = findByBarcode(_salCtxItem.upc);
   _salCtxItem._matchedName = matched ? matched.name : _salCtxItem.name;
   const x = Math.min(e.clientX, window.innerWidth  - salCtxMenu.offsetWidth  - 8);
   const y = Math.min(e.clientY, window.innerHeight - salCtxMenu.offsetHeight - 8);
