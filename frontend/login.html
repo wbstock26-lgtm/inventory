@@ -251,9 +251,10 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
       const d = await r.json().catch(() => ({}));
       throw new Error(d.detail || '로그인 실패');
     }
-    const { token } = await r.json();
+    const { token, role } = await r.json();
     localStorage.setItem('authToken', token);
-    location.replace('/inventory.html');
+    localStorage.setItem('authRole', role || 'split');
+    location.replace(role === 'split' ? '/split.html' : '/inventory.html');
   } catch (err) {
     showMsg('loginMsg', err.message, 'error');
     btn.disabled = false;

@@ -3,25 +3,36 @@
   const API = 'http://127.0.0.1:8000';
   const LOGIN_PAGE = '/login.html';
 
-  // 로그인 페이지 자체는 체크 불필요
-  if (location.pathname === LOGIN_PAGE || location.pathname === '/login.html') return;
+  if (location.pathname === LOGIN_PAGE || location.pathname.endsWith('/login.html')) return;
 
   const token = localStorage.getItem('authToken');
-  if (!token) {
-    location.replace(LOGIN_PAGE);
-    return;
-  }
+  if (!token) { location.replace(LOGIN_PAGE); return; }
 
-  // 서버에서 토큰 유효성 확인
+  // split 역할이 접근 가능한 페이지 목록
+  const SPLIT_ALLOWED = ['/split.html', '/account.html'];
+  const isSplitAllowed = SPLIT_ALLOWED.some(p => location.pathname.endsWith(p.replace('/', '')));
+
   fetch(`${API}/api/auth/check?token=${encodeURIComponent(token)}`)
-    .then(r => { if (!r.ok) throw new Error(); })
+    .then(r => {
+      if (!r.ok) throw new Error();
+      return r.json();
+    })
+    .then(data => {
+      const role = data.role || 'split';
+      localStorage.setItem('authRole', role);
+      // split 역할이면 허용 페이지 외 접근 차단
+      if (role === 'split' && !isSplitAllowed) {
+        location.replace('/split.html');
+      }
+    })
     .catch(() => {
       localStorage.removeItem('authToken');
+      localStorage.removeItem('authRole');
       location.replace(LOGIN_PAGE);
     });
 })();
 
-/* 로그아웃 함수 — 모든 페이지에서 사용 가능 */
+/* 로그아웃 */
 function authLogout() {
   const token = localStorage.getItem('authToken');
   if (token) {
@@ -32,5 +43,11 @@ function authLogout() {
     }).catch(() => {});
   }
   localStorage.removeItem('authToken');
+  localStorage.removeItem('authRole');
   location.replace('/login.html');
+}
+
+/* 현재 역할 반환 */
+function getAuthRole() {
+  return localStorage.getItem('authRole') || 'split';
 }

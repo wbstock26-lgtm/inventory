@@ -133,6 +133,26 @@
     <button class="btn" id="saveBtn" onclick="save()">저장</button>
   </div>
 
+  <!-- 사용자 관리 (admin 전용) -->
+  <div class="card" id="userMgmtCard" style="display:none">
+    <div class="card-title">사용자 관리</div>
+    <div id="userList" style="margin-bottom:16px;"></div>
+
+    <div style="border-top:1px solid var(--border); padding-top:16px;">
+      <div style="font-size:13px; font-weight:600; color:var(--muted); margin-bottom:12px;">새 계정 추가</div>
+      <div class="field">
+        <label>아이디</label>
+        <input type="text" id="newUserName" placeholder="아이디 (2자 이상)">
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input type="password" id="newUserPw" placeholder="비밀번호 (4자 이상)">
+      </div>
+      <div class="msg" id="userMgmtMsg"></div>
+      <button class="btn" onclick="addUser()">추가</button>
+    </div>
+  </div>
+
   <div class="card">
     <button class="logout-btn" onclick="authLogout()">로그아웃</button>
   </div>
@@ -148,8 +168,73 @@
       if (r.ok) {
         const data = await r.json();
         document.getElementById('currentUsername').textContent = data.username;
+        if (data.role === 'admin') {
+          document.getElementById('userMgmtCard').style.display = '';
+          loadUserList();
+        }
       }
     } catch {}
+  }
+
+  async function loadUserList() {
+    const token = localStorage.getItem('authToken');
+    try {
+      const r = await fetch(`${API}/api/auth/users?token=${encodeURIComponent(token)}`);
+      if (!r.ok) return;
+      const users = await r.json();
+      const el = document.getElementById('userList');
+      el.innerHTML = users.map(u => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <span style="font-size:15px;font-weight:600;">${u.username}</span>
+            <span style="font-size:12px;color:var(--muted);margin-left:8px;background:var(--bg);padding:2px 8px;border-radius:10px;">${u.role === 'admin' ? '관리자' : 'Split 전용'}</span>
+          </div>
+          ${u.username !== 'admin' ? `<button onclick="deleteUser('${u.username}')" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">삭제</button>` : ''}
+        </div>
+      `).join('');
+    } catch {}
+  }
+
+  async function addUser() {
+    const token = localStorage.getItem('authToken');
+    const username = document.getElementById('newUserName').value.trim();
+    const password = document.getElementById('newUserPw').value;
+    const msgEl = document.getElementById('userMgmtMsg');
+    if (!username || username.length < 2) return showUserMsg('아이디는 2자 이상이어야 합니다', 'error');
+    if (!password || password.length < 4) return showUserMsg('비밀번호는 4자 이상이어야 합니다', 'error');
+    try {
+      const r = await fetch(`${API}/api/auth/users/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, username, password, role: 'split' }),
+      });
+      if (r.ok) {
+        document.getElementById('newUserName').value = '';
+        document.getElementById('newUserPw').value = '';
+        showUserMsg('추가되었습니다.', 'success');
+        loadUserList();
+      } else {
+        const d = await r.json().catch(() => ({}));
+        showUserMsg(d.detail || '오류가 발생했습니다.', 'error');
+      }
+    } catch { showUserMsg('서버 오류가 발생했습니다.', 'error'); }
+  }
+
+  async function deleteUser(username) {
+    if (!confirm(`'${username}' 계정을 삭제하시겠습니까?`)) return;
+    const token = localStorage.getItem('authToken');
+    try {
+      const r = await fetch(`${API}/api/auth/users/${encodeURIComponent(username)}?token=${encodeURIComponent(token)}`, { method: 'DELETE' });
+      if (r.ok) { showUserMsg('삭제되었습니다.', 'success'); loadUserList(); }
+      else { const d = await r.json().catch(() => ({})); showUserMsg(d.detail || '오류', 'error'); }
+    } catch { showUserMsg('서버 오류가 발생했습니다.', 'error'); }
+  }
+
+  function showUserMsg(text, type) {
+    const el = document.getElementById('userMgmtMsg');
+    el.textContent = text;
+    el.className = 'msg ' + type;
+    setTimeout(() => { el.className = 'msg'; }, 3000);
   }
 
   function showMsg(text, type) {
