@@ -92,6 +92,7 @@ a { color: inherit; text-decoration: none; }
 .kpi-num { font-size: 30px; font-weight: 700; line-height: 1; }
 .kpi-title { font-size: 11px; color: var(--fg2); margin-top: 5px; line-height: 1.4; }
 .kpi-num.orange { color: var(--orange); }
+.kpi-num.red    { color: var(--red); }
 
 /* Content grid */
 .content { padding: 18px 20px; display: flex; flex-direction: column; gap: 18px; }
@@ -352,6 +353,10 @@ tbody tr:hover td { background: var(--bg); }
         <div class="kpi-num" id="kpi5">–</div>
         <div class="kpi-title">총 판매 건수</div>
       </div>
+      <div class="kpi-cell" onclick="showDroppedModal()" style="cursor:pointer">
+        <div class="kpi-num red" id="kpi6">–</div>
+        <div class="kpi-title">재고 고갈 품목<br><span style="font-size:10px;color:var(--fg3)">5개↑→1개↓</span></div>
+      </div>
     </div>
 
     <div class="content">
@@ -496,11 +501,20 @@ function renderKpi() {
   const inCount   = allMovements.filter(m => m.type === 'in').length;
   const outCount  = allMovements.filter(m => m.type === 'out').length;
 
+  // 5개 이상 → 1개 이하로 떨어진 제품: 현재 재고 ≤1 이면서 이동 이력에서 stock_after ≥5 였던 적 있는 제품
+  const lowIds = new Set(filteredProducts.filter(p => p.stock <= 1).map(p => p.id));
+  const droppedIds = new Set();
+  allMovements.forEach(m => {
+    if (lowIds.has(m.product_id) && m.stock_after >= 5) droppedIds.add(m.product_id);
+  });
+  const droppedCount = droppedIds.size;
+
   document.getElementById('kpi1').textContent = filteredProducts.length;
   document.getElementById('kpi2').textContent = lowCount;
   document.getElementById('kpi3').textContent = totalQty;
   document.getElementById('kpi4').textContent = inCount;
   document.getElementById('kpi5').textContent = outCount;
+  document.getElementById('kpi6').textContent = droppedCount;
 
   document.getElementById('sb-total').textContent    = filteredProducts.length;
   document.getElementById('sb-lowstock').textContent = lowCount;
@@ -551,6 +565,50 @@ async function showLowStockModal() {
       <td style="text-align:right;color:${p.stock <= 0 ? '#ef4444' : 'var(--orange)'};font-weight:600">${p.stock}</td>
       <td style="text-align:right">${p.min_stock}</td>
       <td style="text-align:right;color:#ef4444;font-weight:600">${short > 0 ? short : '±0'}</td>
+    `;
+    tr.addEventListener('click', () => {
+      try { sessionStorage.setItem('invHighlight', p.id); } catch {}
+      window.location.href = '/inventory.html';
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Dropped stock modal (5개↑→1개↓) ───────────────────
+function showDroppedModal() {
+  document.getElementById('monthModal').classList.add('open');
+  document.getElementById('modalTitle').textContent = '재고 고갈 품목 (5개↑→1개↓)';
+  document.getElementById('modalEditBar').style.display = 'none';
+
+  // 현재 재고 ≤1 이면서 이동 이력에서 stock_after ≥5 였던 적 있는 제품
+  const lowIds = new Set(filteredProducts.filter(p => p.stock <= 1).map(p => p.id));
+  const maxAfter = {};
+  allMovements.forEach(m => {
+    if (!lowIds.has(m.product_id)) return;
+    if ((maxAfter[m.product_id] || 0) < m.stock_after) maxAfter[m.product_id] = m.stock_after;
+  });
+  const rows = filteredProducts
+    .filter(p => p.stock <= 1 && (maxAfter[p.id] || 0) >= 5)
+    .sort((a, b) => (maxAfter[b.id] || 0) - (maxAfter[a.id] || 0));
+
+  document.getElementById('modalCnt').textContent = rows.length + '개';
+  document.getElementById('modalAmt').textContent = '';
+  document.getElementById('modalHead').innerHTML = `<tr>
+    <th style="text-align:left">제품명</th>
+    <th style="text-align:right;width:70px">현재 재고</th>
+    <th style="text-align:right;width:70px">과거 최고</th>
+  </tr>`;
+
+  const tbody = document.getElementById('modalBody');
+  tbody.innerHTML = '';
+  rows.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.title = '재고 현황에서 보기';
+    tr.innerHTML = `
+      <td>${p.name}</td>
+      <td style="text-align:right;color:${p.stock <= 0 ? '#ef4444' : 'var(--orange)'};font-weight:600">${p.stock}</td>
+      <td style="text-align:right;color:var(--fg2)">${maxAfter[p.id] || '–'}</td>
     `;
     tr.addEventListener('click', () => {
       try { sessionStorage.setItem('invHighlight', p.id); } catch {}
