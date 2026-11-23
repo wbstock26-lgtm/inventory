@@ -770,8 +770,16 @@ function selectProduct(side, id) {
   if (!p) return;
   document.getElementById(side + 'Input').value = p.name;
   document.getElementById(side + 'Drop').style.display = 'none';
-  if (side === 'src') { srcProduct = p; updateRuleUI(p); }
-  else { dstProduct = p; }
+  if (side === 'src') {
+    srcProduct = p;
+    updateRuleUI(p);
+    const autoDst = autoFindDstByName(p.name);
+    if (autoDst) {
+      document.getElementById('dstInput').value = autoDst.name;
+      document.getElementById('dstDrop').style.display = 'none';
+      dstProduct = autoDst;
+    }
+  } else { dstProduct = p; }
   updatePreview();
 }
 
@@ -782,6 +790,30 @@ function detectRule(name) {
   if (pack === 24) return { pack: 24, ratio: 3 };
   if (pack === 12) return { pack: 12, ratio: 2 };
   return { pack, ratio: 1 };
+}
+
+function autoFindDstByName(srcName) {
+  const rules = [
+    { srcNum: '24', dstNum: '8' },
+    { srcNum: '12', dstNum: '6' },
+  ];
+  for (const { srcNum, dstNum } of rules) {
+    // "24Pk", "24PK", "24pk", "24 Pk" 등 패턴 감지
+    const regex = new RegExp(`(\\b${srcNum})(\\s*[Pp][Kk]\\b)`, 'g');
+    if (!regex.test(srcName)) continue;
+    const targetName = srcName.replace(
+      new RegExp(`(\\b${srcNum})(\\s*[Pp][Kk]\\b)`, 'g'),
+      (_, n, s) => dstNum + s
+    );
+    const tWords = targetName.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const hits = _products.filter(p => {
+      if (srcProduct && p.id === srcProduct.id) return false;
+      const nm = p.name.toLowerCase();
+      return tWords.every(w => nm.includes(w));
+    });
+    if (hits.length >= 1) return hits[0];
+  }
+  return null;
 }
 
 function getEffectiveRatio(id, name) {
