@@ -778,6 +778,9 @@ function selectProduct(side, id) {
       document.getElementById('dstInput').value = autoDst.name;
       document.getElementById('dstDrop').style.display = 'none';
       dstProduct = autoDst;
+    } else {
+      document.getElementById('dstInput').value = '';
+      dstProduct = null;
     }
   } else { dstProduct = p; }
   updatePreview();
