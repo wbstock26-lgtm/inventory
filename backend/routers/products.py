@@ -82,10 +82,22 @@ def stock_valuation(db: Session = Depends(get_db)):
 def create_product(body: schemas.ProductCreate, db: Session = Depends(get_db)):
     if body.barcode:
         exists = db.query(models.Product).filter(
-            models.Product.barcode == body.barcode
+            models.Product.barcode == body.barcode,
+            models.Product.is_active == True,
         ).first()
         if exists:
             raise HTTPException(400, f"바코드 {body.barcode} 제품이 이미 존재합니다")
+        # 비활성(소프트삭제) 잔류 레코드가 있으면 완전 삭제 후 재등록 허용
+        ghost = db.query(models.Product).filter(
+            models.Product.barcode == body.barcode,
+            models.Product.is_active == False,
+        ).first()
+        if ghost:
+            db.query(models.StockMovement).filter(models.StockMovement.product_id == ghost.id).delete()
+            db.query(models.SupplierSkuMap).filter(models.SupplierSkuMap.product_id == ghost.id).update({"product_id": None})
+            db.query(models.OrderItem).filter(models.OrderItem.product_id == ghost.id).update({"product_id": None})
+            db.delete(ghost)
+            db.flush()
     p = models.Product(**body.model_dump())
     db.add(p); db.commit(); db.refresh(p)
     out = schemas.ProductOut.model_validate(p)
@@ -248,5 +260,9 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     p = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not p:
         raise HTTPException(404, "제품을 찾을 수 없습니다")
-    p.is_active = False
+    # 연관 데이터 정리 후 하드 삭제
+    db.query(models.StockMovement).filter(models.StockMovement.product_id == product_id).delete()
+    db.query(models.SupplierSkuMap).filter(models.SupplierSkuMap.product_id == product_id).update({"product_id": None})
+    db.query(models.OrderItem).filter(models.OrderItem.product_id == product_id).update({"product_id": None})
+    db.delete(p)
     db.commit()
