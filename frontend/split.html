@@ -789,7 +789,8 @@ function selectProduct(side, id) {
 // ── 분할 규칙 / 비율 UI ─────────────────────────────────────────
 function detectRule(name) {
   const m = name.match(/(\d+)[x×xX]/i);
-  const pack = m ? parseInt(m[1]) : 0;
+  const pk = name.match(/\b(24|12)\s*[Pp][Kk]\b/);
+  const pack = m ? parseInt(m[1]) : (pk ? parseInt(pk[1]) : 0);
   if (pack === 24) return { pack: 24, ratio: 3 };
   if (pack === 12) return { pack: 12, ratio: 2 };
   return { pack, ratio: 1 };
