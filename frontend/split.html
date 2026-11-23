@@ -189,11 +189,16 @@ label { font-size: 11px; font-weight: 600; color: var(--fg2); display: block; ma
 .diff-pos { color: var(--green); }
 
 /* ── Submit ── */
-.submit-btn { width: 100%; padding: 11px; border: none; border-radius: 7px;
+.btn-row { display: flex; gap: 8px; margin-top: 14px; }
+.submit-btn { flex: 1; padding: 11px; border: none; border-radius: 7px;
   background: var(--accent); color: #fff; font-size: 14px; font-weight: 700;
-  cursor: pointer; margin-top: 14px; transition: background .15s; }
+  cursor: pointer; transition: background .15s; }
 .submit-btn:hover { background: var(--accent-h); }
 .submit-btn:disabled { background: var(--border); color: var(--fg3); cursor: not-allowed; }
+.cancel-btn { flex: 0 0 auto; padding: 11px 18px; border: 1.5px solid var(--border);
+  border-radius: 7px; background: transparent; color: var(--fg2); font-size: 14px;
+  font-weight: 600; cursor: pointer; transition: background .15s, color .15s; }
+.cancel-btn:hover { background: var(--border); color: var(--fg); }
 
 /* ── Context menu ── */
 #spl-ctx-menu {
@@ -323,7 +328,10 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
-    <button class="submit-btn" id="submitBtn" disabled onclick="doSplit()">✂️ Split 실행</button>
+    <div class="btn-row">
+      <button class="submit-btn" id="submitBtn" disabled onclick="doSplit()">✂️ Split 실행</button>
+      <button class="cancel-btn" onclick="resetSplitForm()">✕ 취소</button>
+    </div>
   </div>
 
   <!-- 최근 Split 이력 -->
@@ -895,6 +903,21 @@ function updatePreview() {
   document.getElementById('prevRatio').textContent     = `1개 분할 → ${ratio}개 증가`;
 
   wrap.style.display = ''; btn.disabled = false;
+}
+
+// ── 폼 초기화 ──────────────────────────────────────────────────
+function resetSplitForm() {
+  srcProduct = null; dstProduct = null;
+  document.getElementById('srcInput').value = '';
+  document.getElementById('dstInput').value = '';
+  document.getElementById('srcDrop').style.display = 'none';
+  document.getElementById('dstDrop').style.display = 'none';
+  document.getElementById('qtyInput').value = 1;
+  document.getElementById('noteInput').value = '';
+  document.getElementById('srcRule').innerHTML = '';
+  document.getElementById('ratioEditWrap').style.display = 'none';
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('submitBtn').disabled = true;
 }
 
 // ── Split 실행 ──────────────────────────────────────────────────
