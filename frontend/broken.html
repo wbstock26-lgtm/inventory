@@ -135,9 +135,10 @@ tbody td { padding: 9px 12px; vertical-align: middle; }
 .td-note { color: var(--fg2); font-size: 11px; max-width: 160px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.del-btn { background: none; border: none; cursor: pointer; color: var(--fg3);
-  font-size: 14px; padding: 2px 6px; border-radius: 4px; transition: color .15s; }
-.del-btn:hover { color: var(--red); background: var(--red-bg); }
+.del-btn { background: none; border: 1px solid var(--border); cursor: pointer; color: var(--fg2);
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 5px;
+  transition: color .15s, border-color .15s, background .15s; white-space: nowrap; }
+.del-btn:hover { color: var(--red); border-color: var(--red); background: var(--red-bg); }
 
 .empty-row td { text-align: center; padding: 32px; color: var(--fg3); }
 
@@ -432,7 +433,7 @@ async function loadHistory() {
         <td class="td-qty">-${m.quantity}</td>
         <td class="td-stock"><span class="stock-after ${stockCls}">${m.stock_after}</span></td>
         <td class="td-note">${note}</td>
-        <td><button class="del-btn" onclick="deleteRecord(${m.id})" title="삭제">×</button></td>
+        <td><button class="del-btn" onclick="deleteRecord(${m.id})">취소</button></td>
       </tr>`;
     }).join('');
   } catch {
