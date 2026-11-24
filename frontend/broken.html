@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<title>파손 등록</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script src="/auth.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg:#f0f2f5; --surface:#fff; --surface2:#f7f8fa; --border:#e4e7ec;
+  --fg:#111827; --fg2:#6b7280; --fg3:#9ca3af;
+  --accent:#2563eb; --accent-h:#1d4ed8; --accent-bg:#eff6ff;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --red:#dc2626; --red-bg:#fef2f2;
+  --orange:#ea580c; --orange-bg:#fff7ed;
+  --shadow:0 1px 3px rgba(0,0,0,.08); --radius:8px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+    --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+    --accent:#3b82f6; --accent-bg:#1e2a4a;
+    --green:#4ade80; --green-bg:#0a2010;
+    --red:#f87171; --red-bg:#2a0808;
+    --orange:#fb923c; --orange-bg:#1f0d00;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0f1117; --surface:#1a1d24; --surface2:#1f2330; --border:#2a2f3d;
+  --fg:#f1f3f9; --fg2:#8b90a0; --fg3:#4a5270;
+  --accent:#3b82f6; --accent-bg:#1e2a4a;
+  --green:#4ade80; --green-bg:#0a2010;
+  --red:#f87171; --red-bg:#2a0808;
+  --orange:#fb923c; --orange-bg:#1f0d00;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; font-size: 13px; background: var(--bg); color: var(--fg);
+  padding-left: max(16px, env(safe-area-inset-left,0px));
+  padding-right: max(16px, env(safe-area-inset-right,0px)); }
+a { color: inherit; text-decoration: none; }
+
+/* ── Topbar ── */
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px;
+  height: 50px; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; margin-right: 16px; }
+.brand-icon { width: 30px; height: 30px; border-radius: 7px; background: #eff6ff; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.nav-links { display: flex; gap: 2px; }
+.nav-link { padding: 5px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--fg2); white-space: nowrap; }
+.nav-link:hover { background: var(--bg); color: var(--fg); }
+.nav-link.active { background: var(--red-bg); color: var(--red); }
+
+/* ── Layout ── */
+.main { max-width: 1160px; margin: 0 auto; padding: 28px 0 48px; display: flex; gap: 20px; align-items: flex-start; }
+.left-col { width: 380px; flex-shrink: 0; }
+.right-col { flex: 1 1 0; min-width: 0; }
+
+.page-header { margin-bottom: 20px; }
+.page-header h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.page-header p { color: var(--fg2); font-size: 12px; margin-top: 4px; }
+
+/* ── Form Card ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; box-shadow: var(--shadow); }
+.card-title { font-size: 13px; font-weight: 700; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 6px; color: var(--fg); }
+
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 11px; font-weight: 600; color: var(--fg2);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+.field input, .field textarea {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: var(--surface2); color: var(--fg);
+  transition: border-color .15s; outline: none; }
+.field input:focus, .field textarea:focus { border-color: var(--accent); background: var(--surface); }
+.field input.error { border-color: var(--red); }
+.field input[readonly] { background: var(--surface2); color: var(--fg2); cursor: not-allowed; }
+
+.barcode-row { display: flex; gap: 6px; }
+.barcode-row input { flex: 1; }
+.barcode-row button { padding: 9px 14px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; font-weight: 600; background: var(--surface2); color: var(--fg2);
+  cursor: pointer; white-space: nowrap; }
+.barcode-row button:hover { background: var(--border); color: var(--fg); }
+
+.product-found { margin-top: 6px; padding: 8px 11px; background: var(--green-bg);
+  border-radius: 5px; font-size: 12px; color: var(--green); font-weight: 500; display: none; }
+.product-not-found { margin-top: 6px; padding: 8px 11px; background: var(--red-bg);
+  border-radius: 5px; font-size: 12px; color: var(--red); display: none; }
+
+.btn-row { display: flex; gap: 8px; margin-top: 20px; }
+.submit-btn { flex: 1; padding: 11px; border: none; border-radius: 7px;
+  background: var(--red); color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: background .15s; }
+.submit-btn:hover { background: #b91c1c; }
+.submit-btn:disabled { background: var(--border); color: var(--fg3); cursor: not-allowed; }
+.cancel-btn { flex: 0 0 auto; padding: 11px 18px; border: 1.5px solid var(--border);
+  border-radius: 7px; background: transparent; color: var(--fg2); font-size: 14px;
+  font-weight: 600; cursor: pointer; transition: background .15s, color .15s; }
+.cancel-btn:hover { background: var(--border); color: var(--fg); }
+
+/* ── Result Toast ── */
+.result-box { margin-top: 14px; padding: 12px 14px; border-radius: 7px;
+  font-size: 13px; font-weight: 500; display: none; }
+.result-box.success { background: var(--green-bg); color: var(--green); }
+.result-box.error { background: var(--red-bg); color: var(--red); }
+
+/* ── History Table ── */
+.section-title { font-size: 13px; font-weight: 700; margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.section-title span { color: var(--fg2); font-size: 11px; font-weight: 400; }
+
+.tbl-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { background: var(--surface2); padding: 9px 12px; text-align: left;
+  font-size: 11px; font-weight: 600; color: var(--fg2); text-transform: uppercase;
+  letter-spacing: .04em; white-space: nowrap; border-bottom: 1px solid var(--border); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+tbody td { padding: 9px 12px; vertical-align: middle; }
+.td-date { color: var(--fg2); font-size: 11px; white-space: nowrap; }
+.td-barcode { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--fg2); }
+.td-name { font-weight: 500; }
+.td-qty { font-weight: 700; color: var(--red); text-align: right; }
+.td-stock { text-align: right; color: var(--fg2); font-size: 11px; }
+.td-note { color: var(--fg2); font-size: 11px; max-width: 160px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.del-btn { background: none; border: none; cursor: pointer; color: var(--fg3);
+  font-size: 14px; padding: 2px 6px; border-radius: 4px; transition: color .15s; }
+.del-btn:hover { color: var(--red); background: var(--red-bg); }
+
+.empty-row td { text-align: center; padding: 32px; color: var(--fg3); }
+
+/* ── Stock badge ── */
+.stock-after { display: inline-block; padding: 2px 7px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; }
+.stock-after.ok { background: var(--green-bg); color: var(--green); }
+.stock-after.warn { background: var(--orange-bg); color: var(--orange); }
+.stock-after.neg { background: var(--red-bg); color: var(--red); }
+</style>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">🦌</div>
+    Inventory
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="/">🏠 홈</a>
+    <a class="nav-link" href="/inventory.html">📦 재고 현황</a>
+    <a class="nav-link" href="/import.html">📥 발주 입고</a>
+    <a class="nav-link" href="/sales.html">🛒 판매 입력</a>
+    <a class="nav-link" href="/prices.html">💰 판매가 관리</a>
+    <a class="nav-link" href="/split.html">✂️ Split</a>
+    <a class="nav-link active" href="/broken.html">🔴 파손 등록</a>
+    <a class="nav-link" href="/bulk_import.html">📋 제품 일괄등록</a>
+  </div>
+  <button onclick="authLogout()" style="margin-left:auto;font-size:12px;font-weight:600;color:var(--fg2);background:none;border:1.5px solid var(--border);padding:4px 11px;border-radius:6px;cursor:pointer;white-space:nowrap" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='';this.style.borderColor=''">로그아웃</button>
+</div>
+
+<div class="main">
+  <!-- Left: Form -->
+  <div class="left-col">
+    <div class="page-header">
+      <h1>🔴 파손 등록</h1>
+      <p>파손된 제품을 등록하면 재고에서 자동 차감됩니다.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 파손 제품 입력</div>
+
+      <div class="field">
+        <label>날짜</label>
+        <input type="date" id="brokenDate">
+      </div>
+
+      <div class="field">
+        <label>바코드 (UPC)</label>
+        <div class="barcode-row">
+          <input type="text" id="barcodeInput" placeholder="UPC 바코드 입력 후 Enter" oninput="onBarcodeInput()" onkeydown="if(event.key==='Enter')searchProduct()">
+          <button onclick="searchProduct()">검색</button>
+        </div>
+        <div class="product-found" id="productFound"></div>
+        <div class="product-not-found" id="productNotFound">제품을 찾을 수 없습니다.</div>
+      </div>
+
+      <div class="field">
+        <label>제품명</label>
+        <input type="text" id="productName" readonly placeholder="바코드 검색 후 자동 입력">
+      </div>
+
+      <div class="field">
+        <label>수량</label>
+        <input type="number" id="qtyInput" value="1" min="1" style="width:120px">
+      </div>
+
+      <div class="field">
+        <label>메모 <span style="font-weight:400;text-transform:none;letter-spacing:0">(선택)</span></label>
+        <input type="text" id="noteInput" placeholder="파손 사유 등">
+      </div>
+
+      <div id="resultBox" class="result-box"></div>
+
+      <div class="btn-row">
+        <button class="submit-btn" id="submitBtn" disabled onclick="doSubmit()">🔴 파손 등록</button>
+        <button class="cancel-btn" onclick="resetForm()">✕ 취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: History -->
+  <div class="right-col">
+    <div class="section-title">
+      파손 이력
+      <span id="histCount"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>날짜</th>
+            <th>바코드</th>
+            <th>제품명</th>
+            <th style="text-align:right">수량</th>
+            <th style="text-align:right">차감 후 재고</th>
+            <th>메모</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="histBody">
+          <tr class="empty-row"><td colspan="7">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let _foundProduct = null;
+
+// ── 날짜 기본값: 오늘 ──
+(function() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  document.getElementById('brokenDate').value = `${yyyy}-${mm}-${dd}`;
+})();
+
+// ── 바코드 입력 ──
+function onBarcodeInput() {
+  _foundProduct = null;
+  document.getElementById('productName').value = '';
+  document.getElementById('productFound').style.display = 'none';
+  document.getElementById('productNotFound').style.display = 'none';
+  document.getElementById('submitBtn').disabled = true;
+}
+
+async function searchProduct() {
+  const bc = document.getElementById('barcodeInput').value.trim();
+  if (!bc) return;
+  document.getElementById('productFound').style.display = 'none';
+  document.getElementById('productNotFound').style.display = 'none';
+  try {
+    const r = await fetch(`/api/products/by-barcode/${encodeURIComponent(bc)}`);
+    if (!r.ok) throw new Error();
+    const p = await r.json();
+    _foundProduct = p;
+    document.getElementById('productName').value = p.name;
+    const el = document.getElementById('productFound');
+    el.textContent = `✓ ${p.name}  (현재 재고: ${p.stock}개)`;
+    el.style.display = 'block';
+    document.getElementById('submitBtn').disabled = false;
+  } catch {
+    _foundProduct = null;
+    document.getElementById('productName').value = '';
+    document.getElementById('productNotFound').style.display = 'block';
+    document.getElementById('submitBtn').disabled = true;
+  }
+}
+
+// ── 제출 ──
+async function doSubmit() {
+  if (!_foundProduct) return;
+  const qty = parseInt(document.getElementById('qtyInput').value) || 0;
+  if (qty < 1) { showResult('error', '수량은 1 이상이어야 합니다.'); return; }
+  const date = document.getElementById('brokenDate').value;
+  if (!date) { showResult('error', '날짜를 선택하세요.'); return; }
+  const note = document.getElementById('noteInput').value.trim();
+
+  document.getElementById('submitBtn').disabled = true;
+  try {
+    const r = await fetch('/api/stock/broken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_id:  _foundProduct.id,
+        quantity:    qty,
+        broken_date: date,
+        note:        note || null,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || '등록 실패');
+    }
+    const res = await r.json();
+    showResult('success',
+      `✓ ${res.product_name} ${qty}개 파손 등록 완료  |  재고: ${res.stock_before} → ${res.stock_after}`
+    );
+    resetForm();
+    loadHistory();
+  } catch (e) {
+    showResult('error', e.message || '오류가 발생했습니다.');
+    document.getElementById('submitBtn').disabled = false;
+  }
+}
+
+function showResult(type, msg) {
+  const el = document.getElementById('resultBox');
+  el.className = `result-box ${type}`;
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+// ── 폼 초기화 ──
+function resetForm() {
+  _foundProduct = null;
+  document.getElementById('barcodeInput').value = '';
+  document.getElementById('productName').value = '';
+  document.getElementById('productFound').style.display = 'none';
+  document.getElementById('productNotFound').style.display = 'none';
+  document.getElementById('qtyInput').value = 1;
+  document.getElementById('noteInput').value = '';
+  document.getElementById('submitBtn').disabled = true;
+}
+
+// ── 이력 로드 ──
+async function loadHistory() {
+  try {
+    const r = await fetch('/api/stock/broken?limit=200');
+    const rows = await r.json();
+    document.getElementById('histCount').textContent = `총 ${rows.length}건`;
+    const tbody = document.getElementById('histBody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">파손 등록 내역이 없습니다.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(m => {
+      const dateStr = m.order_no || m.created_at.slice(0,10);
+      const stockCls = m.stock_after < 0 ? 'neg' : m.stock_after <= 3 ? 'warn' : 'ok';
+      const note = (m.note || '').replace(/^파손 \d{4}-\d{2}-\d{2}\s*\/?\s*/, '');
+      return `<tr>
+        <td class="td-date">${dateStr}</td>
+        <td class="td-barcode">${m.product?.barcode || ''}</td>
+        <td class="td-name">${m.product_name}</td>
+        <td class="td-qty">-${m.quantity}</td>
+        <td class="td-stock"><span class="stock-after ${stockCls}">${m.stock_after}</span></td>
+        <td class="td-note">${note}</td>
+        <td><button class="del-btn" onclick="deleteRecord(${m.id})" title="삭제">×</button></td>
+      </tr>`;
+    }).join('');
+  } catch {
+    document.getElementById('histBody').innerHTML =
+      '<tr class="empty-row"><td colspan="7">이력을 불러올 수 없습니다.</td></tr>';
+  }
+}
+
+async function deleteRecord(id) {
+  if (!confirm('이 파손 기록을 삭제하시겠습니까?\n재고가 복구됩니다.')) return;
+  try {
+    const r = await fetch(`/api/stock/movements/${id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error();
+    loadHistory();
+  } catch {
+    alert('삭제 실패');
+  }
+}
+
+loadHistory();
+</script>

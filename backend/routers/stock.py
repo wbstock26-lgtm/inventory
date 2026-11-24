@@ -381,6 +381,59 @@ def delete_movement(movement_id: int, db: Session = Depends(get_db)):
     return {"deleted": movement_id}
 
 
+@router.post("/broken", status_code=201)
+def record_broken(body: schemas.BrokenRequest, db: Session = Depends(get_db)):
+    """파손 제품 등록 — 재고 차감 + broken 이동 기록"""
+    p = None
+    if body.product_id:
+        p = db.query(models.Product).filter(models.Product.id == body.product_id).first()
+    elif body.barcode:
+        p = db.query(models.Product).filter(models.Product.barcode == body.barcode).first()
+    if not p:
+        raise HTTPException(404, "제품을 찾을 수 없습니다")
+
+    current = get_current_stock(db, p.id)
+    movement = models.StockMovement(
+        product_id=p.id,
+        type="broken",
+        quantity=body.quantity,
+        stock_before=current,
+        stock_after=current - body.quantity,
+        unit_cost=p.cost,
+        note=f"파손 {body.broken_date}" + (f" / {body.note}" if body.note else ""),
+        order_no=body.broken_date,
+    )
+    db.add(movement)
+    db.commit()
+    return {
+        "product_id":   p.id,
+        "product_name": p.name,
+        "stock_before": current,
+        "stock_after":  current - body.quantity,
+    }
+
+
+@router.get("/broken")
+def get_broken_history(
+    limit: int = Query(200, le=10000),
+    db: Session = Depends(get_db),
+):
+    """파손 이력 조회"""
+    movements = (
+        db.query(models.StockMovement)
+        .options(joinedload(models.StockMovement.product))
+        .filter(models.StockMovement.type == "broken")
+        .order_by(desc(models.StockMovement.created_at))
+        .limit(limit).all()
+    )
+    result = []
+    for m in movements:
+        out = schemas.MovementOut.model_validate(m)
+        out.product_name = m.product.name if m.product else ""
+        result.append(out)
+    return result
+
+
 @router.get("/low")
 def get_low_stock(db: Session = Depends(get_db)):
     """최소 재고 미달 품목"""

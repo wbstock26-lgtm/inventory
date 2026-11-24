@@ -175,6 +175,14 @@ class BulkSetResult(BaseModel):
     items:     List[BulkSetResultItem]
 
 
+class BrokenRequest(BaseModel):
+    product_id:  Optional[int] = None
+    barcode:     Optional[str] = None
+    quantity:    int = Field(..., gt=0)
+    broken_date: str   # YYYY-MM-DD
+    note:        Optional[str] = None
+
+
 class MovementUpdate(BaseModel):
     quantity:  Optional[int]   = None
     unit_cost: Optional[float] = None
