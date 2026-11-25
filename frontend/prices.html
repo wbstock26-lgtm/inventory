@@ -347,7 +347,7 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; background:
   <div class="summary-bar" id="summaryBar">
     <div class="sum-chip">전체 <strong id="sumTotal">—</strong></div>
     <div class="sum-chip" style="color:var(--green)">설정완료 <strong id="sumSet">—</strong></div>
-    <div class="sum-chip" style="color:var(--red)">미설정 <strong id="sumUnset">—</strong></div>
+    <div class="sum-chip" id="sumUnsetChip" style="color:var(--red);cursor:pointer" title="클릭하면 미설정 제품만 표시" onclick="setFilterUnset()">미설정 <strong id="sumUnset">—</strong></div>
   </div>
 
   <!-- 신규 제품 등록 패널 -->
@@ -1187,6 +1187,15 @@ async function loadProducts() {
     dot.style.color = 'var(--red)';
     document.getElementById('priceBody').innerHTML = '<tr><td colspan="10" class="empty">서버에 연결할 수 없습니다.<br>start.bat을 실행해주세요.</td></tr>';
   }
+}
+
+function setFilterUnset() {
+  activeFilter = 'unset';
+  try { localStorage.setItem('prices_filter', activeFilter); } catch {}
+  document.querySelectorAll('.filter-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.filter === 'unset'));
+  document.getElementById('btnImportConnectSku').style.display = 'none';
+  renderTable();
 }
 
 // Filter tabs
