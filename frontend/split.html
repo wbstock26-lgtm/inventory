@@ -621,14 +621,14 @@ function toggleDstAddSearch() {
 }
 
 function searchDstForAdd(q) {
-  const val = q.trim().toLowerCase();
+  const val = normalizePk(q.trim().toLowerCase());
   const drop = document.getElementById('dstAddSearchDrop');
   if (!val) { drop.style.display = 'none'; return; }
   const terms = val.split(/\s+/).filter(Boolean);
   const panelIds = new Set(_dstProducts.map(p => p.id));
   const hits = _products.filter(p => {
     if (panelIds.has(p.id)) return false;
-    const nm = (p.name || '').toLowerCase();
+    const nm = normalizePk((p.name || '').toLowerCase());
     return terms.every(t => nm.includes(t));
   }).slice(0, 10);
   if (!hits.length) { drop.style.display = 'none'; return; }
@@ -672,14 +672,14 @@ function toggleAddSearch() {
 }
 
 function searchForAdd(q) {
-  const val = q.trim().toLowerCase();
+  const val = normalizePk(q.trim().toLowerCase());
   const drop = document.getElementById('addSearchDrop');
   if (!val) { drop.style.display = 'none'; return; }
   const terms = val.split(/\s+/).filter(Boolean);
   const panelIds = new Set(_24canProducts.map(p => p.id));
   const hits = _products.filter(p => {
     if (panelIds.has(p.id)) return false;
-    const nm = (p.name || '').toLowerCase();
+    const nm = normalizePk((p.name || '').toLowerCase());
     return terms.every(t => nm.includes(t));
   }).slice(0, 10);
   if (!hits.length) { drop.style.display = 'none'; return; }
@@ -755,13 +755,17 @@ function clearPair(fromId) {
 }
 
 // ── 제품 검색 / 선택 ────────────────────────────────────────────
+function normalizePk(s) {
+  // "8 Pk" → "8pk", "24 PK" → "24pk" 등 숫자+Pk 사이 공백 제거
+  return s.replace(/(\d)\s+([Pp][Kk])/g, '$1$2');
+}
 function searchProduct(side, q) {
   const drop = document.getElementById(side + 'Drop');
-  const val = q.trim().toLowerCase();
+  const val = normalizePk(q.trim().toLowerCase());
   if (!val) { drop.style.display = 'none'; return; }
   const terms = val.split(/\s+/).filter(Boolean);
   const hits = _products.filter(p => {
-    const nm = (p.name || '').toLowerCase();
+    const nm = normalizePk((p.name || '').toLowerCase());
     const bc = p.barcode || '';
     return bc.includes(val) || terms.every(t => nm.includes(t));
   }).slice(0, 12);
