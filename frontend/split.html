@@ -630,7 +630,7 @@ function searchDstForAdd(q) {
     if (panelIds.has(p.id)) return false;
     const nm = normalizePk((p.name || '').toLowerCase());
     return terms.every(t => nm.includes(t));
-  }).slice(0, 10);
+  }).sort((a, b) => a.name.length - b.name.length).slice(0, 10);
   if (!hits.length) { drop.style.display = 'none'; return; }
   drop.innerHTML = hits.map(p => `
     <div class="panel-add-drop-item" onclick="addDstToPanel(${p.id})">
@@ -681,7 +681,7 @@ function searchForAdd(q) {
     if (panelIds.has(p.id)) return false;
     const nm = normalizePk((p.name || '').toLowerCase());
     return terms.every(t => nm.includes(t));
-  }).slice(0, 10);
+  }).sort((a, b) => a.name.length - b.name.length).slice(0, 10);
   if (!hits.length) { drop.style.display = 'none'; return; }
   drop.innerHTML = hits.map(p => `
     <div class="panel-add-drop-item" onclick="addToPanel(${p.id})">
@@ -768,7 +768,7 @@ function searchProduct(side, q) {
     const nm = normalizePk((p.name || '').toLowerCase());
     const bc = p.barcode || '';
     return bc.includes(val) || terms.every(t => nm.includes(t));
-  }).slice(0, 12);
+  }).sort((a, b) => a.name.length - b.name.length).slice(0, 12);
   if (!hits.length) { drop.style.display = 'none'; return; }
   drop.innerHTML = hits.map(p => `
     <div class="drop-item" onclick="selectProduct('${side}', ${p.id})">
